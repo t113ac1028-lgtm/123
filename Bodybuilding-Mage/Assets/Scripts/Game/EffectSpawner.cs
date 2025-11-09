@@ -3,105 +3,69 @@ using UnityEngine;
 public class EffectSpawner : MonoBehaviour
 {
     [Header("Refs")]
-    public AltAndSlamCoordinator coordinator;
     public Transform leftHand;
     public Transform rightHand;
+    public Transform bossTarget;
+    public Camera cam;
+
+    [Header("Muzzles (可選，優先使用)")]
+    public Transform leftMuzzle;
+    public Transform rightMuzzle;
+
+    [Header("Spawn Offsets（當沒有 Muzzle 時才用）")]
+    public Vector3 spawnOffsetLeft  = new Vector3(-0.05f, -0.02f, 0.25f);
+    public Vector3 spawnOffsetRight = new Vector3( 0.05f, -0.02f, 0.25f);
 
     [Header("Prefabs")]
-    public GameObject slashPrefab;   // 單手下揮用的劍氣
-    public GameObject slamPrefab;    // 重摔用的爆發
+    public GameObject slashProjectilePrefab;
+    public GameObject hitEffectPrefab;
 
-    [Header("Slash")]
-    public float slashForwardSpeed = 8f;
-    public float slashLife = 0.6f;
-    public Vector3 slashLocalOffset = new Vector3(0, -0.05f, 0.1f); // 手前方一點點
-    public enum SlashForwardMode { CameraForward, HandForward, WorldForwardZ }
-    public SlashForwardMode slashForwardMode = SlashForwardMode.CameraForward;
+    [Header("Flight")]
+    public float projectileSpeed   = 12f;
+    public float projectileMaxLife = 2.0f;
+    public float upwardBias        = 0.10f;
 
-    [Header("Slam")]
-    public float slamLife = 0.9f;
-    public Vector3 slamOffset = Vector3.zero;
+    [Header("Scoring")]
+    public DamageCalculator damage;
+    public ComboCounter combo;
 
-    Camera _cam;
-
-    void Awake()
+    public void SpawnSlashProjectile(string who, float strength)
     {
-        _cam = Camera.main;
-    }
+        if (!slashProjectilePrefab || !bossTarget) return;
 
-    void OnEnable()
-    {
-        if (coordinator != null)
+        bool isLeft = (who == "Left");
+        Transform hand   = isLeft ? leftHand   : rightHand;
+        Transform muzzle = isLeft ? leftMuzzle : rightMuzzle;
+        if (!hand) return;
+
+        // 1) 出生位置：優先用錨點，其次用各自的本地偏移
+        Vector3 spawnPos = muzzle
+            ? muzzle.position
+            : hand.TransformPoint(isLeft ? spawnOffsetLeft : spawnOffsetRight);
+
+        // 2) 旋轉：完全使用 prefab 自己的角度（你已手動調好垂直）
+        Quaternion rot = slashProjectilePrefab.transform.rotation;
+
+        // 3) 生成 & 大小
+        GameObject go = Instantiate(slashProjectilePrefab, spawnPos, rot);
+        float k = Mathf.Clamp01(strength);
+        go.transform.localScale = Vector3.one * Mathf.Lerp(0.85f, 1.05f, k);
+
+        // 4) 啟動追蹤（只改位置，不改旋轉）
+        var homing = go.GetComponent<ProjectileHoming>();
+        if (homing)
         {
-            coordinator.OnAlternateSwing.AddListener(SpawnSlash);
-            coordinator.OnHeavySlam.AddListener(SpawnSlam);
+            homing.Launch(
+                tgt:   bossTarget,
+                spd:   projectileSpeed,
+                life:  projectileMaxLife,
+                upBias:upwardBias,
+                hitFx: hitEffectPrefab,
+                dmg:   damage,
+                cmb:   combo,
+                slam:  false,
+                str01: k
+            );
         }
-    }
-
-    void OnDisable()
-    {
-        if (coordinator != null)
-        {
-            coordinator.OnAlternateSwing.RemoveListener(SpawnSlash);
-            coordinator.OnHeavySlam.RemoveListener(SpawnSlam);
-        }
-    }
-
-    void SpawnSlash(string who, float strength)
-    {
-        if (slashPrefab == null) return;
-
-        Transform hand = (who == "Left") ? leftHand : rightHand;
-        if (hand == null) return;
-
-        Vector3 pos = hand.TransformPoint(slashLocalOffset);
-        Quaternion rot = Quaternion.identity;
-
-        // 前進方向
-        Vector3 fwd = Vector3.forward;
-        switch (slashForwardMode)
-        {
-            case SlashForwardMode.CameraForward:
-                if (_cam != null) fwd = _cam.transform.forward;
-                break;
-            case SlashForwardMode.HandForward:
-                fwd = hand.forward;
-                break;
-            case SlashForwardMode.WorldForwardZ:
-                fwd = Vector3.forward;
-                break;
-        }
-
-        GameObject fx = Instantiate(slashPrefab, pos, Quaternion.LookRotation(fwd, Vector3.up));
-        float scale = Mathf.Lerp(0.9f, 1.8f, strength);
-        fx.transform.localScale = Vector3.one * scale;
-
-        // 若特效帶剛體則推一下；否則簡單移動腳本
-        var rb = fx.GetComponent<Rigidbody>();
-        if (rb != null)
-            rb.velocity = fwd * (slashForwardSpeed * Mathf.Lerp(1f, 1.7f, strength));
-        else
-            fx.AddComponent<SimpleMover>().Init(fwd * (slashForwardSpeed * Mathf.Lerp(1f, 1.7f, strength)));
-
-        Destroy(fx, slashLife);
-    }
-
-    void SpawnSlam(float strength)
-    {
-        if (slamPrefab == null || leftHand == null || rightHand == null) return;
-
-        Vector3 mid = (leftHand.position + rightHand.position) * 0.5f + slamOffset;
-        GameObject fx = Instantiate(slamPrefab, mid, Quaternion.identity);
-        float scale = Mathf.Lerp(1.2f, 2.4f, strength);
-        fx.transform.localScale = Vector3.one * scale;
-        Destroy(fx, slamLife);
-    }
-
-    // 簡單位移用（若你的特效沒有剛體）
-    class SimpleMover : MonoBehaviour
-    {
-        Vector3 v;
-        public void Init(Vector3 vel) => v = vel;
-        void Update() => transform.position += v * Time.deltaTime;
     }
 }
