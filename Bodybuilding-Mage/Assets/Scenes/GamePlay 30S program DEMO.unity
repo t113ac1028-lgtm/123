@@ -1745,7 +1745,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 8.01, y: 0.0000023841858, z: 6.48}
+  m_Size: {x: 8.01, y: 0.0000023841858, z: 22.98}
   m_Center: {x: 0, y: 0, z: -1.02}
 --- !u!1 &1001363633
 GameObject:
@@ -3212,6 +3212,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1560529316}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1567556223
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1567556224}
+  m_Layer: 0
+  m_Name: RAW slam
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1567556224
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1567556223}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.02975356, y: -0, z: -0, w: 0.9995573}
+  m_LocalPosition: {x: 0, y: -0.04, z: 5.01}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1735483994
 GameObject:
   m_ObjectHideFlags: 0
@@ -3810,15 +3841,24 @@ MonoBehaviour:
   cam: {fileID: 1807052001}
   leftMuzzle: {fileID: 29961058}
   rightMuzzle: {fileID: 1501390828}
+  slamMuzzle: {fileID: 1567556224}
   spawnOffsetLeft: {x: -0.1, y: -0.02, z: 0.25}
   spawnOffsetRight: {x: 0.1, y: -0.02, z: 0.25}
+  spawnOffsetSlam: {x: 0, y: -0.02, z: 0.3}
   slashProjectilePrefab: {fileID: 6111486948785554852, guid: df3e0a862739fc2439f1639766f97bb9,
+    type: 3}
+  slamProjectilePrefab: {fileID: 6882116249847192011, guid: d36a28b5d906d624880fc402b0864c17,
     type: 3}
   hitEffectPrefab: {fileID: 856368647163548680, guid: 86717a8ca83e53840a8bce07668396af,
     type: 3}
-  projectileSpeed: 12
-  projectileMaxLife: 2
-  upwardBias: 0.1
+  slashSpeed: 12
+  slashMaxLife: 2
+  slashUpBias: 0.1
+  slamSpeed: 14
+  slamMaxLife: 2
+  slamUpBias: 0.06
+  slamScaleRange: {x: 1.1, y: 1.6}
+  slashScaleRange: {x: 0.85, y: 1.05}
   damage: {fileID: 1800422719}
   combo: {fileID: 1369261126}
 --- !u!114 &1941399504
@@ -3835,12 +3875,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   leftDetector: {fileID: 1560529318}
   rightDetector: {fileID: 204793979}
-  slamWindow: 0.12
-  slamMinDownSpeed: 3.2
-  slamMaxAngleFromDown: 30
-  slamVerticalDominance: 2
-  slamExclusionAfterSolo: 0.14
-  slamGlobalCooldown: 0.2
+  slamWindow: 0.18
+  slamMinDownSpeed: 1.2
+  slamMaxAngleFromDown: 45
+  slamVerticalDominance: 1.5
+  slamExclusionAfterSolo: 0.08
+  slamGlobalCooldown: 0.12
   warmupTime: 0.4
   OnAlternateSwing:
     m_PersistentCalls:
@@ -3859,7 +3899,19 @@ MonoBehaviour:
         m_CallState: 2
   OnHeavySlam:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1941399503}
+        m_TargetAssemblyTypeName: EffectSpawner, Assembly-CSharp
+        m_MethodName: SpawnSlamProjectile
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!4 &1941399505
 Transform:
   m_ObjectHideFlags: 0
@@ -4159,3 +4211,4 @@ SceneRoots:
   - {fileID: 1369261127}
   - {fileID: 948413758}
   - {fileID: 1016178420}
+  - {fileID: 1567556224}
