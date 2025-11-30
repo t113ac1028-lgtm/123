@@ -23,6 +23,7 @@ public class GameTimer : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (!Countdown.gameStarted) return;  // 還在倒數就先不做事
         if (!running) return;
 
         remaining -= Time.deltaTime;   // 用遊戲時間倒數

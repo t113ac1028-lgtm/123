@@ -6,6 +6,12 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Joycon test.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/Scenes/Main Menu.unity
+    guid: e0cc8eb21faf88c4f84d1860f54babff
+  - enabled: 1
+    path: Assets/Scenes/GamePlay 30S program DEMO.unity
+    guid: 3710ebddb57059c4dba84b4a6842cbf1
+  - enabled: 1
+    path: Assets/Scenes/ResultScene.unity
+    guid: cf931dac07dc1a34faa3752ecb4a5183
   m_configObjects: {}
