@@ -2,229 +2,228 @@ using UnityEngine;
 using TMPro;
 using System.Collections.Generic;
 
+/// <summary>
+/// 計分邏輯（新版：只有「力量．Combo．穩定度」三個模組）
+///  - 外部只要呼叫 AddSlash / AddSlam 並給 strength01（0~1）即可。
+///  - 分數顯示、HitNumber、LastHit 都在這支裡一起處理。
+/// </summary>
 public class DamageCalculator : MonoBehaviour
 {
     [Header("UI")]
     public TextMeshProUGUI scoreText;
     public TextMeshProUGUI lastHitText;
-    public TextMeshProUGUI debugStrengthText;   // 👈 新增：顯示這次揮動的強度用
+    public TextMeshProUGUI debugStrengthText;
+    
     [Header("Hit Number (可選)")]
     public HitNumberManager hitNumbers;
     public Camera cam;
 
-    [Header("Base & Multipliers")]
+    [Header("Base & Move Type")]
+    [Tooltip("所有攻擊的基礎分數")]
     public float baseDamage = 1000f;
-    public float slashMul   = 1.0f;
-    public float slamMul    = 2.2f;
-    [Tooltip("每 10 連一階，每階 +20%")]
+    [Tooltip("Slash 乘數（1 = 就是 baseDamage）")]
+    public float slashMul = 1f;
+    [Tooltip("Slam 乘數（>1 代表比 slash 更吃力，分數比較高）")]
+    public float slamMul = 2.2f;
+
+    [Header("力量 STR")]
+    [Tooltip("低於這個強度視為太小力，只拿到 veryLowStrengthMul 的倍率")]
+    [Range(0f, 1f)] public float minStrength = 0.30f;
+    [Tooltip("力量滿格時能拿到的最高倍率（在基礎分上再乘以這個）")]
+    public float strengthMaxMul = 1.6f;
+    [Tooltip("低於 minStrength 時給的保底倍率")]
+    public float veryLowStrengthMul = 0.3f;
+
+    [Header("Combo")]
+    [Tooltip("每 N Combo 算一階（用來給加成）")]
+    public int comboStep = 5;
+    [Tooltip("每升一階 Combo 額外 +x 倍，例如 0.2 = +20%")]
     public float comboTierBonus = 0.20f;
-    public ComboCounter combo; // 記得拖進來（用來取 tier）
+    [Tooltip("最多吃到幾階 Combo 加成")]
+    public int maxComboTier = 4;
+    public ComboCounter combo;     // 記得在 Inspector 連進來
 
-    [Header("Amplitude Gate")]
-    [Tooltip("低於這個強度的揮動視為無效 (0~1)")]
-    public float minStrength = 0.3f;
-    [Tooltip("大約代表正常用力揮動 (0~1)")]
-    public float idealStrength = 0.7f;
-
-    [Header("Tempo Target (Hz)")]
-    [Tooltip("目標頻率下限（Hz），例如 1.6 ≈ 96 BPM")]
-    public float targetHzMin = 1.6f;
-    [Tooltip("目標頻率上限（Hz），例如 2.2 ≈ 132 BPM")]
+    [Header("穩定度（節奏與平穩度）")]
+    [Tooltip("拿最近幾秒的揮擊來估計穩定度")]
+    public float windowSec = 4f;
+    [Tooltip("希望玩家維持的目標頻率下限（次 / 秒）")]
+    public float targetHzMin = 1.3f;   // 大約 1.3 ~ 2.2 可依實測再調
+    [Tooltip("希望玩家維持的目標頻率上限（次 / 秒）")]
     public float targetHzMax = 2.2f;
-    [Tooltip("頻率在目標帶中央可達到的加成（1.00~1.50）")]
-    public float tempoMaxBoost = 1.35f; // 中心帶 1.35 倍，帶外降到 0.85~1.0
-
-    [Header("Stability (最近窗口)")]
-    [Tooltip("近幾秒內的節奏穩定度評估")]
-    public float windowSec = 4.0f;
-    [Tooltip("抖動越小越接近這個上限（1.0~1.5）")]
-    public float stabilityMaxBoost = 1.25f;
-    [Tooltip("變異係數 CV 超過這個值就幾乎無加成")]
-    public float stabilityCvBad = 0.35f; // 35% 抖動很糟
-    [Tooltip("CV 低於這個值視為極穩")]
-    public float stabilityCvGood = 0.12f; // 12% 抖動極穩
-
-    [Header("Fatigue / Endurance")]
-    [Tooltip("連續維持在節奏帶內會累積，最多 +10%")]
-    public float enduranceMaxBoost = 1.10f;
-    [Tooltip("達到滿耐力所需的秒數（在節奏帶內）")]
-    public float enduranceBuildSec = 10f;
-    [Tooltip("離開節奏帶後，耐力每秒衰減比例")]
-    public float enduranceDecayPerSec = 0.5f;
+    [Tooltip("變異係數 <= 這個值視為非常穩定")]
+    public float cvGood = 0.15f;
+    [Tooltip("變異係數 >= 這個值視為很不穩定")]
+    public float cvBad = 0.45f;
+    [Tooltip("穩定度最低倍率（亂揮亂停也還是有分數，不會變 0）")]
+    public float stabilityMinMul = 0.85f;
+    [Tooltip("穩定度最高倍率（維持好節奏可以拿到的上限）")]
+    public float stabilityMaxMul = 1.30f;
+    // ---------- Debug / UI 用 ----------
+    [HideInInspector] public float lastHz;           // 最近計算出的頻率(次/秒)
+    [HideInInspector] public float lastStability01;  // 0~1 的穩定度分數
 
     int total;
     readonly Queue<float> hitTimes = new Queue<float>();
-    float endurance; // 0..1：耐力蓄積
+
+    // ---------- 對外介面 ----------
 
     public void ResetScore()
-{
-    total = 0;
+    {
+        total = 0;
+        if (scoreText)    scoreText.text = $"{total:000000}";
+        if (lastHitText)  lastHitText.text = string.Empty;
+    }
 
-    // 分數歸零時順便更新 UI
-    if (scoreText)
-        scoreText.text = $"{total:000000}";
-
-    if (lastHitText)
-        lastHitText.text = "";   // 不一定要，有需要就清掉最後一擊顯示
-}
-
-
-    // ---- 對外介面（你原本就有）----
+    /// <summary>一般 Slash 命中</summary>
     public void AddSlash(float strength01, Vector3 worldFrom)
     {
-        // 顯示這次揮動的強度（方便你觀察大/小力大概是多少）
         if (debugStrengthText)
             debugStrengthText.text = $"STR {strength01:0.00}";
 
-        int dmg = Mathf.RoundToInt( ComputeDamage(strength01, isSlam:false) );
+        int dmg = Mathf.RoundToInt(ComputeDamage(strength01, isSlam: false));
         ApplyScore(dmg, worldFrom);
     }
 
+    /// <summary>Slam 命中</summary>
     public void AddSlam(float strength01, Vector3 worldFrom)
     {
         if (debugStrengthText)
             debugStrengthText.text = $"STR {strength01:0.00}";
 
-        int dmg = Mathf.RoundToInt( ComputeDamage(strength01, isSlam:true) );
+        int dmg = Mathf.RoundToInt(ComputeDamage(strength01, isSlam: true));
         ApplyScore(dmg, worldFrom);
     }
 
-    // ---- 核心計算 ----
+    // ---------- 核心計算 ----------
+
     float ComputeDamage(float strength01, bool isSlam)
     {
-        // 0) 幅度門檻：太小的揮動視為沒揮到，不計分
-        if (strength01 < minStrength)
-        {
-            return 0f;
-        }
-
         float now = Time.time;
         RegisterHitTime(now);
 
-        // 0.5) 幅度係數：正常大小 ≈ 1，小一點就打折
-        float safeIdeal = Mathf.Max(0.0001f, idealStrength);
-        float ampFactor = Mathf.Clamp(strength01 / safeIdeal, 0.5f, 1.0f);
-
-        // 1) 基礎＋強度
-        float strengthMul = 1f + Mathf.Clamp01(strength01); // 1~2倍
-        strengthMul *= ampFactor;                           // 再乘上幅度折扣/加成
+        // 1) 動作種類
         float typeMul = isSlam ? slamMul : slashMul;
 
-        // 2) Combo
-        int tier = combo ? combo.Tier(10) : 0;
-        float comboMul = 1f + comboTierBonus * Mathf.Clamp(tier, 0, 4);
+        // 2) 力量 STR 乘數
+        float strengthMul = StrengthMultiplier(strength01);
 
-        // 3) Tempo
-        float hz = EstimateHz();
-        float tempoMul = TempoMultiplier(hz);
+        // 3) Combo 乘數
+        int tier = combo ? combo.Tier(comboStep) : 0;
+        tier = Mathf.Clamp(tier, 0, maxComboTier);
+        float comboMul = 1f + comboTierBonus * tier;
 
-        // 4) Stability
-        float cv = EstimateCV(); // 變異係數（越低越穩）
-        float stabilityMul = StabilityMultiplier(cv);
+        // 4) 穩定度乘數（同時看節奏區間與平穩度）
+        float stabilityMul = StabilityMultiplier();
 
-        // 5) Endurance（在帶內累積，離開帶內衰減）
-        UpdateEndurance(hz);
-        float fatigueMul = Mathf.Lerp(1f, enduranceMaxBoost, endurance);
-
-        float dmg = baseDamage * strengthMul * typeMul * comboMul * tempoMul * stabilityMul * fatigueMul;
+        float dmg = baseDamage * typeMul * strengthMul * comboMul * stabilityMul;
         return dmg;
     }
 
-    void ApplyScore(int dmg, Vector3 worldFrom){
-        total += dmg;
-        if (scoreText)   scoreText.text = $"{total:000000}";
-        if (lastHitText) lastHitText.GetComponent<LastHitFade>()?.Show($"+{dmg}");
-        if (hitNumbers && cam) hitNumbers.Spawn(worldFrom, dmg, cam);
+    float StrengthMultiplier(float strength01)
+    {
+        strength01 = Mathf.Clamp01(strength01);
+
+        if (strength01 < minStrength)
+        {
+            // 太小力：不給完全 0 分，給一個保底
+            return veryLowStrengthMul;
+        }
+
+        // 把 [minStrength, 1] 映射到 [0,1]
+        float t = Mathf.InverseLerp(minStrength, 1f, strength01);
+        // 對應到 [1, strengthMaxMul]
+        return Mathf.Lerp(1f, strengthMaxMul, t);
     }
 
-    // ---- 節奏資料處理 ----
+    float StabilityMultiplier()
+    {
+        if (hitTimes.Count < 3)
+        {
+            // 資料太少先給中性倍率
+            return 1f;
+        }
+
+        // 1) 算出各次揮擊的間隔
+        int n = hitTimes.Count;
+        float[] times = hitTimes.ToArray();
+        float sum = 0f;
+        int intervalCount = n - 1;
+        float[] intervals = new float[intervalCount];
+
+        for (int i = 1; i < n; i++)
+        {
+            float dt = Mathf.Max(0.0001f, times[i] - times[i - 1]);
+            intervals[i - 1] = dt;
+            sum += dt;
+        }
+
+        float mean = sum / intervalCount;
+        float hz = 1f / mean;              // 平均頻率（次 / 秒）
+
+        // 2) 計算變異係數 CV = 標準差 / 平均
+        float var = 0f;
+        for (int i = 0; i < intervalCount; i++)
+        {
+            float d = intervals[i] - mean;
+            var += d * d;
+        }
+        var /= intervalCount;
+        float std = Mathf.Sqrt(var);
+        float cv = (mean > 0f) ? (std / mean) : 1f;
+
+        // ---- 2-1) 平穩度評分：CV 越小越好 ----
+        float stableScore = Mathf.InverseLerp(cvBad, cvGood, Mathf.Clamp(cv, 0f, 10f));
+        stableScore = Mathf.Clamp01(stableScore);   // 0 ~ 1
+
+        // ---- 2-2) 頻率區間評分：在帶內最好，稍微快/慢一點也還可以 ----
+        float freqScore = 1f;
+        float mid = 0.5f * (targetHzMin + targetHzMax);
+        float halfRange = 0.5f * (targetHzMax - targetHzMin);
+        if (halfRange > 0f)
+        {
+            float dist = Mathf.Abs(hz - mid);
+            if (dist <= halfRange)
+            {
+                // 帶內：給滿分
+                freqScore = 1f;
+            }
+            else
+            {
+                // 出帶：距離越遠扣得越多，但不會瞬間掉到 0
+                float extra = dist - halfRange;
+                float maxExtra = halfRange; // 再多一個 halfRange 視為最差
+                float t = Mathf.Clamp01(extra / Mathf.Max(0.0001f, maxExtra));
+                freqScore = 1f - t;         // 1 -> 0
+            }
+        }
+
+        // ---- 2-3) 合成穩定度分數 ----
+        // 讓頻率只影響一半，真正決定好壞的是「平穩度」本身
+        float overall = stableScore * (0.5f + 0.5f * freqScore); // 0 ~ 1
+
+        // 把結果存起來給 UI 用
+        lastHz = hz;
+        lastStability01 = overall;
+        // ---- 3) 映射到倍率區間 ----
+        return Mathf.Lerp(stabilityMinMul, stabilityMaxMul, overall);
+    }
+
+    // ---------- Hit 註冊與分數套用 ----------
+
     void RegisterHitTime(float t)
     {
         hitTimes.Enqueue(t);
-        // 移除超出窗口的資料
         while (hitTimes.Count > 0 && (t - hitTimes.Peek()) > windowSec)
             hitTimes.Dequeue();
     }
 
-    float EstimateHz()
+    void ApplyScore(int dmg, Vector3 worldFrom)
     {
-        // 用窗口內相鄰命中間隔的平均 → 頻率
-        if (hitTimes.Count < 2) return 0f;
-        float prev = -1f, sum = 0f; int n = 0;
-        foreach (var tt in hitTimes){
-            if (prev >= 0f){ sum += (tt - prev); n++; }
-            prev = tt;
-        }
-        if (n <= 0) return 0f;
-        float meanInterval = Mathf.Max(0.0001f, sum / n);
-        return 1f / meanInterval;
-    }
+        total += dmg;
 
-    float EstimateCV()
-    {
-        // 變異係數 CV = 標準差 / 平均
-        if (hitTimes.Count < 3) return 1f; // 資料太少，當作很不穩
-        List<float> intervals = new List<float>();
-        float prev = -1f;
-        foreach (var tt in hitTimes){
-            if (prev >= 0f) intervals.Add(tt - prev);
-            prev = tt;
-        }
-        if (intervals.Count < 2) return 1f;
-
-        float sum = 0f;
-        foreach (var dt in intervals) sum += dt;
-        float mean = sum / intervals.Count;
-        if (mean <= 0f) return 1f;
-
-        float var = 0f;
-        foreach (var dt in intervals){
-            float d = dt - mean;
-            var += d * d;
-        }
-        var /= intervals.Count;
-        float std = Mathf.Sqrt(var);
-        return std / mean;
-    }
-
-    float TempoMultiplier(float hz)
-    {
-        if (hz <= 0f) return 1f;
-
-        // 在 targetHzMin~targetHzMax 中間是最舒服的帶
-        float mid = 0.5f * (targetHzMin + targetHzMax);
-        float halfRange = 0.5f * (targetHzMax - targetHzMin);
-        if (halfRange <= 0f) return 1f;
-
-        float x = Mathf.Clamp01(1f - Mathf.Abs(hz - mid) / halfRange);
-        // x=1 在中心，x=0 在邊界外
-        float minBoost = 0.85f;
-        return Mathf.Lerp(minBoost, tempoMaxBoost, x);
-    }
-
-    float StabilityMultiplier(float cv)
-    {
-        // cv 越低越穩，越接近 stabilityCvGood → 越接近 stabilityMaxBoost
-        if (cv <= 0f) return stabilityMaxBoost;
-        if (cv >= stabilityCvBad) return 1f;
-
-        float t = Mathf.InverseLerp(stabilityCvBad, stabilityCvGood, cv);
-        t = Mathf.Clamp01(t);
-        return Mathf.Lerp(1f, stabilityMaxBoost, t);
-    }
-
-    void UpdateEndurance(float hz)
-    {
-        bool inBand = (hz >= targetHzMin && hz <= targetHzMax);
-        if (inBand)
-        {
-            endurance += Time.deltaTime / Mathf.Max(0.0001f, enduranceBuildSec);
-        }
-        else
-        {
-            endurance -= enduranceDecayPerSec * Time.deltaTime;
-        }
-        endurance = Mathf.Clamp01(endurance);
+        if (scoreText)   scoreText.text = $"{total:000000}";
+        if (lastHitText) lastHitText.GetComponent<LastHitFade>()?.Show($"+{dmg}");
+        if (hitNumbers && cam) hitNumbers.Spawn(worldFrom, dmg, cam);
     }
 
     public int Total() => total;

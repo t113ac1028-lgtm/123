@@ -69,6 +69,11 @@ public class ComboCounter : MonoBehaviour
 
     public int Current => combo;
     public int Max => maxCombo;
+
+    /// <summary>
+    /// 依照 step（預設 10）算出 Combo 階級。
+    /// 之後 DamageCalculator 會用 Tier(5) 來算 5 hit 一階。
+    /// </summary>
     public int Tier(int step = 10) => Mathf.FloorToInt(combo / (float)step);
 
     void UpdateText()

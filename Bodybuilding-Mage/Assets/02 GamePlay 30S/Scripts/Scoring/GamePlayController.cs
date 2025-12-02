@@ -1,4 +1,3 @@
-
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -9,8 +8,8 @@ public class GamePlayController : MonoBehaviour
     public ComboCounter combo;
 
     [Header("Match Settings")]
-    public float matchDuration = 30f;  // 這一局玩幾秒
-    public bool autoStartOnSceneLoad = false; // 若你有倒數，就設成 false
+    public float matchDuration = 30f;              // 這一局玩幾秒
+    public bool autoStartOnSceneLoad = false;      // 若你有倒數，就設成 false
 
     float timeLeft;
     bool playing;
@@ -44,7 +43,7 @@ public class GamePlayController : MonoBehaviour
         playing  = false;
 
         // 分數 / Combo 歸零
-        if (damage) damage.ResetScore(); // 等一下幫你在 DamageCalculator 補這個
+        if (damage) damage.ResetScore();
         if (combo)  combo.Clear();
     }
 
@@ -61,12 +60,13 @@ public class GamePlayController : MonoBehaviour
         int finalScore = damage ? damage.Total() : 0;
         int maxCombo   = combo  ? combo.Max      : 0;
 
-        // TODO: 把分數存起來，切到結算場景
-        ResultData.lastScore   = finalScore;
+        // 把這一局結果寫進 ResultData，並更新該玩家歷史最佳
+        ResultData.lastScore    = finalScore;
         ResultData.lastMaxCombo = maxCombo;
         PlayerDataStore.UpdateBestForCurrentRun();
 
-        SceneManager.LoadScene("ResultScene"); // 之後你做好的排行場景名字
+        // 進入結算畫面（記得場景名稱要對）
+        SceneManager.LoadScene("ResultScene");
     }
 
     public bool IsPlaying => playing;
