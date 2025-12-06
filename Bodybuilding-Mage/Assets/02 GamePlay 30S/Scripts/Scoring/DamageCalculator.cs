@@ -9,6 +9,11 @@ using System.Collections.Generic;
 /// </summary>
 public class DamageCalculator : MonoBehaviour
 {
+    [Header("音效")]
+    public AudioSource audioSource;   // 拖一個 AudioSource 進來
+    public AudioClip slashSfx;        // 一般揮砍音效
+    public AudioClip slamSfx;         // 重擊音效
+
     [Header("UI")]
     public TextMeshProUGUI scoreText;
     public TextMeshProUGUI lastHitText;
@@ -81,6 +86,8 @@ public class DamageCalculator : MonoBehaviour
             debugStrengthText.text = $"STR {strength01:0.00}";
 
         int dmg = Mathf.RoundToInt(ComputeDamage(strength01, isSlam: false));
+        // 🔊 播放 Slash 音效
+        PlaySfx(slashSfx);
         ApplyScore(dmg, worldFrom);
     }
 
@@ -91,7 +98,19 @@ public class DamageCalculator : MonoBehaviour
             debugStrengthText.text = $"STR {strength01:0.00}";
 
         int dmg = Mathf.RoundToInt(ComputeDamage(strength01, isSlam: true));
+
+        // 🔊 播放 Slam 音效
+        PlaySfx(slamSfx);
+    
         ApplyScore(dmg, worldFrom);
+    }
+
+    //播音效
+    void PlaySfx(AudioClip clip)
+    {
+        if (audioSource == null || clip == null) return;
+
+        audioSource.PlayOneShot(clip);
     }
 
     // ---------- 核心計算 ----------

@@ -43,8 +43,8 @@ Material:
     m_Ints: []
     m_Floats:
     - _Breath: 2
-    - _BreathFrquency: 2
-    - _Breath_intensity: 0.8
+    - _BreathFrquency: 0
+    - _Breath_intensity: 0
     - _Fullscreen_AlphaBlendOperation: 0
     - _Fullscreen_BlendMode: 1
     - _Fullscreen_ColorBlendOperation: 0
