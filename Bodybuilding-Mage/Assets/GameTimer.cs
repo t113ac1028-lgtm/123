@@ -1,51 +1,74 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
 public class GameTimer : MonoBehaviour
 {
-    public TMP_Text timerText;   // 把你的 Text (TMP) 拉進來
-    public float startSeconds = 30f;
-    public bool autoStart = true;
+    [Header("UI")]
+    [SerializeField] private TextMeshProUGUI timerText;
 
-    float remaining;
-    bool running;
-    // Start is called before the first frame update
-    void Start()
+    [Header("Settings")]
+    [SerializeField] private float startSeconds = 30f;
+
+    [Header("Refs")]
+    [SerializeField] private GamePlayController controller;
+
+    private float timeLeft;
+    private bool running;
+    private bool timeUpSent;
+
+    private void Start()
     {
-        Time.timeScale = 1f;    // 確保一開始不是暫停
-        remaining = startSeconds;
-        UpdateText(remaining);
-        running = autoStart; // autoStart是決定是否自動開始計時的指令
+        timeLeft = startSeconds;
+        UpdateText();
     }
 
-    // Update is called once per frame
-    void Update()
+    private void Update()
     {
-        if (!Countdown.gameStarted) return;  // 還在倒數就先不做事
-        if (!running) return;
-
-        remaining -= Time.deltaTime;   // 用遊戲時間倒數
-        if (remaining <= 0f)
+        // 還沒開始：等 Countdown 決定「正式開始遊戲」
+        if (!running)
         {
-            remaining = 0f;
-            UpdateText(remaining);
-            running = false;
-            Time.timeScale = 0f;       // 歸零→暫停遊戲
-            return;
+            if (Countdown.gameStarted && !timeUpSent)
+            {
+                running = true;
+            }
+            else
+            {
+                return;
+            }
         }
-        UpdateText(remaining);
+
+        if (timeUpSent) return;
+
+        // 正在倒數
+        timeLeft -= Time.deltaTime;
+        if (timeLeft < 0f) timeLeft = 0f;
+
+        UpdateText();
+
+        // 時間到
+        if (timeLeft <= 0f)
+        {
+            running    = false;
+            timeUpSent = true;
+
+            Debug.Log("[GameTimer] Time up.");
+
+            if (controller != null)
+            {
+                controller.OnTimerFinished();
+            }
+            else
+            {
+                Debug.LogWarning("[GameTimer] 沒有指定 GamePlayController，無法通知結束。");
+            }
+        }
     }
 
-    void UpdateText(float seconds)
+    private void UpdateText()
     {
-        if (timerText == null) return;
-        int s = Mathf.CeilToInt(seconds);
-        // 只顯示秒數
-        timerText.text = s.ToString();
-
-        // 如果想要 mm:ss 顯示，改成下面這行：
-        // timerText.text = $"{Mathf.FloorToInt(seconds/60f):00}:{Mathf.CeilToInt(seconds%60f):00}";
+        if (timerText != null)
+        {
+            timerText.text = Mathf.CeilToInt(timeLeft).ToString();
+        }
     }
 }

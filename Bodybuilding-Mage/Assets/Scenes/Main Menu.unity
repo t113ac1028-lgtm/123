@@ -694,7 +694,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerIdRoot: {fileID: 1558460046}
   playerIdInput: {fileID: 1558460047}
-  gameplaySceneName: GamePlay 30S program DEMO
+  gameplaySceneName: Story
 --- !u!4 &1061612381
 Transform:
   m_ObjectHideFlags: 0

@@ -69,6 +69,27 @@ public class DownSwingDetector : MonoBehaviour
     void Update()
     {
         
+        // 🔒 還在倒數 = 不要偵測 + 順便重置狀態
+    if (!Countdown.gameStarted)
+    {
+        if (hand == null) hand = transform;
+
+        // 把上一幀位置 / 速度 / 位移清乾淨，避免一開始就誤觸發
+        _prevPos = hand.position;
+        _vel     = Vector3.zero;
+        _downDisp = 0f;
+        _upDisp   = 0f;
+        _armed    = false;
+        _primed   = false;
+
+        // 重新計算暖機基線，讓真正開始遊戲時再重新累積
+        _startTime   = Time.time;
+        _sumSqDown   = 0f;
+        _samples     = 0;
+        _dynamicDownFloor = minDownSpeed;
+
+        return;
+    }
 
         float dt = Mathf.Max(Time.deltaTime, 1e-5f);
 

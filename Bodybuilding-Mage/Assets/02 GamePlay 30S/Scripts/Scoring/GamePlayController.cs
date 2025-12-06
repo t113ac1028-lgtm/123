@@ -3,72 +3,99 @@ using UnityEngine.SceneManagement;
 
 public class GamePlayController : MonoBehaviour
 {
+    public static GamePlayController Instance { get; private set; }
+
     [Header("Core Systems")]
-    public DamageCalculator damage;
-    public ComboCounter combo;
+    [SerializeField] private DamageCalculator damage;
+    [SerializeField] private ComboCounter combo;
+
+    [Header("Full Screen Effect")]
+    [SerializeField] private BreathFXController breathFX; // ← 新增：控制呼吸特效
 
     [Header("Match Settings")]
-    public float matchDuration = 30f;              // 這一局玩幾秒
-    public bool autoStartOnSceneLoad = false;      // 若你有倒數，就設成 false
+    [Tooltip("現在只當作參考，實際時間由 GameTimer 控制")]
+    //[SerializeField] private float matchDuration = 30f;
+    [SerializeField] private bool autoStartOnSceneLoad = false;
 
-    float timeLeft;
-    bool playing;
+    private bool playing;
 
-    void Start()
+    public static bool IsPlaying => Instance != null && Instance.playing;
+
+    private void Awake()
     {
-        ResetMatch();
-
-        if (autoStartOnSceneLoad)
-            StartMatch();
-        // 如果你用 Countdown，那就在倒數結束時呼叫 StartMatch()
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
     }
 
-    void Update()
+    private void Start()
     {
-        if (!playing) return;
-
-        timeLeft -= Time.deltaTime;
-        if (timeLeft <= 0f)
+        if (autoStartOnSceneLoad)
         {
-            timeLeft = 0f;
-            EndMatch();
+            StartMatch();
         }
     }
 
-    // ====== 對外 API ======
-
-    public void ResetMatch()
+    private void Update()
     {
-        timeLeft = matchDuration;
-        playing  = false;
-
-        // 分數 / Combo 歸零
-        if (damage) damage.ResetScore();
-        if (combo)  combo.Clear();
+        // 如果不是自動開始，就等 Countdown 結束後才開局
+        if (!playing && !autoStartOnSceneLoad)
+        {
+            if (Countdown.gameStarted)
+            {
+                StartMatch();
+            }
+        }
     }
 
-    public void StartMatch()
+    private void StartMatch()
     {
+        if (playing) return;
+
         playing = true;
+
+        if (combo != null)
+            combo.Clear();
+
+        // ★ 開局時啟動呼吸特效的「15 秒後淡入」流程
+        if (breathFX != null)
+            breathFX.StartEffect();
+
+        Debug.Log("[GamePlay] Match started");
     }
 
-    public void EndMatch()
+    /// <summary>
+    /// 給 GameTimer 在時間到的時候呼叫
+    /// </summary>
+    public void OnTimerFinished()
     {
         if (!playing) return;
-        playing = false;
 
-        int finalScore = damage ? damage.Total() : 0;
-        int maxCombo   = combo  ? combo.Max      : 0;
-
-        // 把這一局結果寫進 ResultData，並更新該玩家歷史最佳
-        ResultData.lastScore    = finalScore;
-        ResultData.lastMaxCombo = maxCombo;
-        PlayerDataStore.UpdateBestForCurrentRun();
-
-        // 進入結算畫面（記得場景名稱要對）
-        SceneManager.LoadScene("ResultScene");
+        Debug.Log("[GamePlay] Timer finished, ending match.");
+        EndMatch();
     }
 
-    public bool IsPlaying => playing;
-    public float TimeLeft  => timeLeft;
+    private void EndMatch()
+    {
+        playing = false;
+
+        // ★ 結束時關掉特效（淡出）
+        if (breathFX != null)
+            breathFX.StopEffect();
+
+        int finalScore = damage != null ? damage.Total() : 0;
+        int maxCombo   = combo  != null ? combo.Max  : 0;
+
+        // 丟給 ResultData
+        ResultData.lastScore    = finalScore;
+        ResultData.lastMaxCombo = maxCombo;
+
+        // 更新這個玩家的最佳紀錄
+        PlayerDataStore.UpdateBestForCurrentRun();
+
+        SceneManager.LoadScene("ResultScene");
+    }
 }
