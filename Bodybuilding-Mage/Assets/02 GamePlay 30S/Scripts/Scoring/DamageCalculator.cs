@@ -2,6 +2,7 @@ using UnityEngine;
 using TMPro;
 using System.Collections.Generic;
 
+
 /// <summary>
 /// 計分邏輯（力量．Combo．穩定度）
 ///  - 外部只要呼叫 AddSlash / AddSlam 並給 strength01（0~1）即可。
@@ -66,6 +67,9 @@ public class DamageCalculator : MonoBehaviour
     public GameTimer timer;
     [Tooltip("剩餘秒數 <= 這個值時，進入 Slam 階段（例如 15 秒）")]
     public float slamPhaseThreshold = 15f;
+
+    [Header("傷害數值爆炸特效")]
+    public GameScoreExplode scoreExploder;
 
     int total;
     readonly Queue<float> hitTimes = new Queue<float>();
@@ -252,6 +256,12 @@ public class DamageCalculator : MonoBehaviour
         if (scoreText)   scoreText.text = $"{total:000000}";
         if (lastHitText) lastHitText.GetComponent<LastHitFade>()?.Show($"+{dmg}");
         if (hitNumbers && cam) hitNumbers.Spawn(worldFrom, dmg, cam);
+
+        // 🔥 呼叫炸分數特效（每次 JoyCon 命中都會觸發）
+        if (scoreExploder != null)
+        {
+            scoreExploder.ExplodeScore(dmg);
+        }
     }
 
     public int Total() => total;   // 給 GamePlayController 用（原本就有的）

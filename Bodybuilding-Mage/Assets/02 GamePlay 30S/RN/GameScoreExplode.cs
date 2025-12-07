@@ -25,14 +25,21 @@ public class GameScoreExplode : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.E))
-        {
-            ExplodeScore();
-        }
+        
     }
 
-    void ExplodeScore()
+    /// <summary>
+    /// 由外部呼叫：把這次造成的傷害 dmg 顯示出來
+    /// </summary>
+    
+    public void ExplodeScore(int dmg)
     {
+        if (scorePrefab == null || spawnPoint == null)
+        {
+            Debug.LogWarning("GameScoreExplode：scorePrefab 或 spawnPoint 沒指定");
+            return;
+        }
+
         for (int i = 0; i < spawnCount; i++)
         {
             // 在出生點附近一點點隨機位置生成
@@ -44,20 +51,21 @@ public class GameScoreExplode : MonoBehaviour
                 spawnPoint.parent       // 讓它跟原本 Canvas 同一層級
             );
 
-            // 給它一個隨機方向的力
+            // 設定文字內容（假設 prefab 上有 TMP_Text + ScoreFade）
+            TMP_Text tmp = obj.GetComponentInChildren<TMP_Text>();
+            if (tmp != null)
+            {
+                tmp.text = $"+{dmg}";
+            }
+
+            // 給它一個隨機方向的力（往上噴）
             Rigidbody2D rb = obj.GetComponent<Rigidbody2D>();
             if (rb != null)
             {
-                // 基準角度：90 = 往上
-                float baseAngle = 90f;
-
-                // 隨機偏移 ±100 度（所以範圍：-100 到 +100）
+                float baseAngle = 90f;                      // 往上
                 float randomOffset = Random.Range(-45f, 45f);
-
-                // 最終角度
                 float angle = baseAngle + randomOffset;
 
-                // 把角度轉成向量
                 Vector2 dir = new Vector2(
                     Mathf.Cos(angle * Mathf.Deg2Rad),
                     Mathf.Sin(angle * Mathf.Deg2Rad)
