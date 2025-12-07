@@ -41,6 +41,12 @@ public class DamageCalculator : MonoBehaviour
     [Tooltip("低於 minStrength 時給的保底倍率")]
     public float veryLowStrengthMul = 0.3f;
 
+     [Header("Safety (防呆)")]
+    [Tooltip("兩次攻擊間至少要間隔多少秒，太密集的呼叫會被忽略")]
+    public float minAttackInterval = 0.10f;   // 你可以先用 0.10 試試
+
+    //float lastAttackTime = -999f;
+
     [Header("Combo")]
     [Tooltip("每 N Combo 算一階（用來給加成）")]
     public int comboStep = 5;
@@ -97,14 +103,20 @@ public class DamageCalculator : MonoBehaviour
     }
 
     // 統一進入口：在這裡依時間段「最後決定」是 Slash 還是 Slam
-    void HandleAttack(float strength01, Vector3 worldFrom, bool isSlamRequested)
+        void HandleAttack(float strength01, Vector3 worldFrom, bool isSlamRequested)
     {
+        // 0. 先看這一下在現在的時間段可不可以被接受
+        //    （前半段不接受 Slam，後半段不接受 Slash）
+        if (!IsAttackAllowed(isSlamRequested))
+            return;
+
         if (debugStrengthText)
             debugStrengthText.text = $"STR {strength01:0.00}";
 
-        bool isSlamActual = DecideSlamByPhase(isSlamRequested);
+        // 不再被時間改掉類型，照 AltAndSlam 判的結果來算
+        bool isSlamActual = isSlamRequested;
 
-        // 1. 先更新 Combo（這裡 slam 才會真的多 +1）
+        // 1. 先更新 Combo
         if (combo != null)
         {
             combo.RegisterHit(isSlamActual, strength01);
@@ -120,29 +132,38 @@ public class DamageCalculator : MonoBehaviour
         ApplyScore(dmg, worldFrom);
     }
 
+
+
     // 根據 GameTimer 決定「這一下」到底當 Slash 還是 Slam
-    bool DecideSlamByPhase(bool isSlamRequested)
-    {
-        // 沒有 Timer 就保持原本行為
-        if (timer == null)
-            return isSlamRequested;
-
-        float t = timer.TimeLeft;
-
-        // 前半段（30~16秒）：一律視為 Slash
-        if (t > slamPhaseThreshold)
-            return false;
-
-        // 後半段（15~0秒）：一律視為 Slam
-        return true;
-    }
-
+    
     // 播音效
     void PlaySfx(AudioClip clip)
     {
         if (audioSource == null || clip == null) return;
         audioSource.PlayOneShot(clip);
     }
+
+        // 檢查這一下攻擊在目前時間段是否被允許
+    bool IsAttackAllowed(bool isSlamRequested)
+    {
+        // 沒有 Timer 就不鎖，全部都算
+        if (timer == null)
+            return true;
+
+        float t = timer.TimeLeft;
+        bool inSlamPhase = t <= slamPhaseThreshold;
+
+        // 前半段（Slash Phase）：不接受 Slam
+        if (!inSlamPhase && isSlamRequested)
+            return false;
+
+        // 後半段（Slam Phase）：不接受 Slash
+        if (inSlamPhase && !isSlamRequested)
+            return false;
+
+        return true;
+    }
+
 
     // ---------- 核心計算 ----------
 

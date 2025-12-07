@@ -3,6 +3,14 @@ using UnityEngine.SceneManagement;
 
 public class GamePlayController : MonoBehaviour
 {
+
+    [Header("Debug / Reset")]
+    [Tooltip("是否啟用鍵盤快速重開（Play 模式方便測試用）")]
+    [SerializeField] private bool enableKeyboardReset = true;
+
+    [Tooltip("按下哪個鍵重開當前遊戲場景")]
+    [SerializeField] private KeyCode resetKey = KeyCode.R;
+
     public static GamePlayController Instance { get; private set; }
 
     [Header("Core Systems")]
@@ -49,6 +57,11 @@ public class GamePlayController : MonoBehaviour
                 StartMatch();
             }
         }
+                if (enableKeyboardReset && Input.GetKeyDown(resetKey))
+        {
+            ResetGameplay();
+        }
+
     }
 
     private void StartMatch()
@@ -77,6 +90,16 @@ public class GamePlayController : MonoBehaviour
         Debug.Log("[GamePlay] Timer finished, ending match.");
         EndMatch();
     }
+
+        // 重新載入目前這個 Gameplay 場景
+    public void ResetGameplay()
+    {
+        // ✅ 這裡只 reload 場景，不碰 PlayerDataStore，
+        //    所以玩家之前輸入的 ID 會留在記憶體 / PlayerPrefs 裡。
+        var scene = SceneManager.GetActiveScene();
+        SceneManager.LoadScene(scene.name);
+    }
+
 
     private void EndMatch()
     {

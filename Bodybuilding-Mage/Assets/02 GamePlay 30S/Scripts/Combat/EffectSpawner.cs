@@ -8,6 +8,12 @@ public class EffectSpawner : MonoBehaviour
     public Transform bossTarget;
     public Camera cam;
 
+    [Header("Slash / Slam Phase Lock")]
+    [Tooltip("把 GameTimer 拖進來，用來判斷現在是 Slash 段還是 Slam 段")]
+    public GameTimer timer;
+    [Tooltip("剩餘秒數 <= 這個值時，進入 Slam 段（例如 15 秒）")]
+    public float slamPhaseThreshold = 15f;
+
     [Header("Muzzles (可選，優先使用)")]
     public Transform leftMuzzle;
     public Transform rightMuzzle;
@@ -39,6 +45,36 @@ public class EffectSpawner : MonoBehaviour
     [Header("Scoring")]
     public DamageCalculator damage;
     public ComboCounter combo;
+
+        bool InSlamPhase()
+    {
+        if (timer == null) return false;   // 沒有 Timer 就當作「一直是 Slash 段」
+        return timer.TimeLeft <= slamPhaseThreshold;
+    }
+
+        // Alt Swing 用：依時間段決定要生 Slash 還是 Slam 特效
+        // Alt Swing 用：只有在 Slash 段才會生 Slash 特效
+    public void SpawnSwingByPhase(string who, float strength)
+    {
+        // 後半段（Slam Phase）就不生任何特效
+        if (InSlamPhase())
+            return;
+
+        // 前半段：正常 Slash 特效
+        SpawnSlashProjectile(who, strength);
+    }
+
+    // Heavy Slam 用：只有在 Slam 段才會生 Slam 特效
+    public void SpawnSlamByPhase(float strength)
+    {
+        // 前半段（Slash Phase）直接忽略這個 Slam
+        if (!InSlamPhase())
+            return;
+
+        // 後半段：正常 Slam 特效
+        SpawnSlamProjectile(strength);
+    }
+
 
     // ===== Slash（單手） =====
     public void SpawnSlashProjectile(string who, float strength)

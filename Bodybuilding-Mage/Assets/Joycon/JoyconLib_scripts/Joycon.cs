@@ -662,4 +662,28 @@ public class Joycon
         }
         DebugPrint(string.Format(format, tostr), d);
     }
+
+    public void Close()
+{
+    try
+    {
+        // 先讓 poll thread 停下來
+        stop_polling = true;
+
+        if (PollThreadObj != null && PollThreadObj.IsAlive)
+        {
+            try { PollThreadObj.Join(50); } catch { }
+        }
+
+        // 再關 hid handle
+        if (handle != IntPtr.Zero)
+        {
+            HIDapi.hid_close(handle);
+            handle = IntPtr.Zero;
+        }
+    }
+    catch { }
+}
+
+
 }

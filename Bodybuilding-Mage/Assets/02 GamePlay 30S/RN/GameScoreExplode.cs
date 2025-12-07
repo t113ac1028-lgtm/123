@@ -55,7 +55,7 @@ public class GameScoreExplode : MonoBehaviour
             TMP_Text tmp = obj.GetComponentInChildren<TMP_Text>();
             if (tmp != null)
             {
-                tmp.text = $"+{dmg}";
+                tmp.text = $"-{dmg}";
             }
 
             // 給它一個隨機方向的力（往上噴）

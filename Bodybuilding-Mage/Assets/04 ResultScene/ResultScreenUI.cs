@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.SceneManagement;
+using MaskTransitions;
 
 public class ResultScreenUI : MonoBehaviour
 {
@@ -12,24 +13,22 @@ public class ResultScreenUI : MonoBehaviour
     public TMP_Text bestComboText;
 
     [Header("Scenes")]
-    public string mainMenuSceneName = "Main Menu"; // 你的主選單場景名稱
+    public string mainMenuSceneName = "Main Menu";
+    public string rankingSceneName = "RankingList";   // ★ 新增：排行榜場景名稱
 
     void Start()
     {
-        // 顯示玩家 ID（可能沒填就顯示 Unknown）
         if (playerIdText != null)
             playerIdText.text = string.IsNullOrEmpty(ResultData.playerId)
                 ? "Player: Unknown"
                 : $"Player: {ResultData.playerId}";
 
-        // 這一局成績
         if (lastScoreText != null)
             lastScoreText.text = $"Score: {ResultData.lastScore}";
 
         if (lastComboText != null)
             lastComboText.text = $"Max Combo: {ResultData.lastMaxCombo}";
 
-        // 歷史最佳（PlayerDataStore.UpdateBestForCurrentRun 已經幫你寫進 ResultData 了）
         if (bestScoreText != null)
             bestScoreText.text = $"Best Score: {ResultData.bestScore}";
 
@@ -37,15 +36,29 @@ public class ResultScreenUI : MonoBehaviour
             bestComboText.text = $"Best Combo: {ResultData.bestMaxCombo}";
     }
 
-    // 給「回主選單」按鈕用
-    public void OnClickBackToMenu()
+    void Update()
     {
-        SceneManager.LoadScene(mainMenuSceneName);
+        // ★★★ 這裡：按 Enter → 進排行榜 ★★★
+        if (Input.GetKeyDown(KeyCode.Return))
+        {
+            GoToRanking();
+        }
     }
 
-    // 如果你想要「再玩一次」，也可以多做一個
-    public void OnClickReplay()
+    // ★ 新增：進排行榜的函式
+    // ★ 進排行榜，用 TransitionManager 轉場
+public void GoToRanking()
+{
+    if (TransitionManager.Instance != null)
     {
-        SceneManager.LoadScene("GamePlay 30S program DEMO"); // 換成你的 gameplay 場景名字
+        // 用遮罩動畫切去排行榜場景
+        TransitionManager.Instance.LoadLevel(rankingSceneName);
     }
+    else
+    {
+        // 萬一沒掛 TransitionManager，就直接換場景
+        SceneManager.LoadScene(rankingSceneName);
+    }
+}
+
 }

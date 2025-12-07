@@ -347,7 +347,7 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: f5512d9b085aad3408d187dd2973ac89, type: 3}
+  m_audioClip: {fileID: 8300000, guid: 342cae4797d768a4f8512baf43decd31, type: 3}
   m_PlayOnAwake: 1
   m_Volume: 1
   m_Pitch: 1
@@ -527,7 +527,7 @@ MonoBehaviour:
   baselineMargin: 1.6
   minDownDisplacement: 6
   minUpPrimeDisplacement: 7
-  upPrimeTimeout: 1
+  upPrimeTimeout: 1.2
   OnDownSwing:
     m_PersistentCalls:
       m_Calls: []
@@ -1609,8 +1609,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4278714623
-  m_fontColor: {r: 1, g: 0, b: 0.03235817, a: 1}
+    rgba: 4293984000
+  m_fontColor: {r: 0, g: 1, b: 0.9401612, a: 1}
   m_enableVertexGradient: 1
   m_colorMode: 1
   m_fontColorGradient:
@@ -3355,6 +3355,12 @@ MonoBehaviour:
   timerText: {fileID: 1308263846}
   startSeconds: 30
   controller: {fileID: 1802517210}
+  slamPhaseThreshold: 15
+  warningLeadSeconds: 2
+  warningFlashSpeed: 3
+  warningMaxScale: 1.6
+  normalColor: {r: 1, g: 0.7882353, b: 0.34509805, a: 1}
+  warningColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!1 &1106637806
 GameObject:
   m_ObjectHideFlags: 0
@@ -3384,8 +3390,8 @@ Light:
   serializedVersion: 10
   m_Type: 1
   m_Shape: 0
-  m_Color: {r: 0.9056604, g: 0.74759704, b: 0.7495449, a: 1}
-  m_Intensity: 1.4
+  m_Color: {r: 0.990566, g: 0.7803044, b: 0.93452716, a: 1}
+  m_Intensity: 1.27
   m_Range: 9.03
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -3394,7 +3400,7 @@ Light:
     m_Type: 2
     m_Resolution: -1
     m_CustomResolution: -1
-    m_Strength: 0.892
+    m_Strength: 0.688
     m_Bias: 0.05
     m_NormalBias: 0.4
     m_NearPlane: 0.090299994
@@ -3428,8 +3434,8 @@ Light:
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 0
-  m_ColorTemperature: 7477
-  m_UseColorTemperature: 0
+  m_ColorTemperature: 6537
+  m_UseColorTemperature: 1
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
@@ -3812,7 +3818,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: -493, y: -430}
+  m_AnchoredPosition: {x: -488, y: -430}
   m_SizeDelta: {x: 500, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1308263846
@@ -3982,7 +3988,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1353252379
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4114,7 +4120,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1366537739
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4171,7 +4177,7 @@ MonoBehaviour:
   baseColor: {r: 0, g: 0, b: 0, a: 1}
   hitFlashColor: {r: 1, g: 0.24056602, b: 0.70517266, a: 1}
   resetWindowSec: 3
-  slamBonus: 1
+  slamBonus: 2
   punchScaleSlash: 1.2
   punchScaleSlam: 1.4
   punchTime: 0.14
@@ -4690,7 +4696,7 @@ MonoBehaviour:
   baselineMargin: 1.6
   minDownDisplacement: 6
   minUpPrimeDisplacement: 7
-  upPrimeTimeout: 1
+  upPrimeTimeout: 1.2
   OnDownSwing:
     m_PersistentCalls:
       m_Calls: []
@@ -5034,6 +5040,7 @@ MonoBehaviour:
   minStrength: 0.3
   strengthMaxMul: 1.6
   veryLowStrengthMul: 0.3
+  minAttackInterval: 0.1
   comboStep: 5
   comboTierBonus: 0.2
   maxComboTier: 4
@@ -5079,6 +5086,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5420af6a63439144aacee2616d8f1a0d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  enableKeyboardReset: 1
+  resetKey: 114
   damage: {fileID: 1800422719}
   combo: {fileID: 1369261126}
   breathFX: {fileID: 1335932525}
@@ -5473,7 +5482,7 @@ Transform:
   m_GameObject: {fileID: 1835778072}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.43, z: -1.8499994}
+  m_LocalPosition: {x: 0, y: -0.43, z: -3.77}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5623,7 +5632,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4278190335
-  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
+  m_fontColor: {r: 0, g: 1, b: 0.9411765, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -5725,6 +5734,8 @@ MonoBehaviour:
   rightHand: {fileID: 315516930}
   bossTarget: {fileID: 1307121325}
   cam: {fileID: 1807052001}
+  timer: {fileID: 1091752063}
+  slamPhaseThreshold: 15
   leftMuzzle: {fileID: 29961058}
   rightMuzzle: {fileID: 1501390828}
   slamMuzzle: {fileID: 1567556224}
@@ -5761,19 +5772,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   leftDetector: {fileID: 1560529318}
   rightDetector: {fileID: 204793979}
-  slamWindow: 0.18
-  slamMinDownSpeed: 1.2
-  slamMaxAngleFromDown: 45
-  slamVerticalDominance: 1.5
+  slamWindow: 0.26
+  slamMinDownSpeed: 0.8
+  slamMaxAngleFromDown: 40
+  slamVerticalDominance: 1
   slamExclusionAfterSolo: 0.08
-  slamGlobalCooldown: 0.12
+  slamGlobalCooldown: 0.5
   warmupTime: 0.4
   OnAlternateSwing:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1941399503}
         m_TargetAssemblyTypeName: EffectSpawner, Assembly-CSharp
-        m_MethodName: SpawnSlashProjectile
+        m_MethodName: SpawnSwingByPhase
         m_Mode: 0
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -5788,7 +5799,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1941399503}
         m_TargetAssemblyTypeName: EffectSpawner, Assembly-CSharp
-        m_MethodName: SpawnSlamProjectile
+        m_MethodName: SpawnSlamByPhase
         m_Mode: 0
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

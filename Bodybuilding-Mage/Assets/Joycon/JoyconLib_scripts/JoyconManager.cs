@@ -85,19 +85,52 @@ public class JoyconManager: MonoBehaviour
 		}
     }
 
-    void Update()
+        void Update()
     {
-		for (int i = 0; i < j.Count; ++i)
-		{
-			j[i].Update();
-		}
+        for (int i = 0; i < j.Count; ++i)
+        {
+            j[i].Update();
+        }
     }
 
+    // 停止播放（Editor 停止 Play）時清一次
+    void OnDisable()
+    {
+        CleanupJoycons();
+    }
+
+    // 遊戲真正關閉（Build）時也清一次
     void OnApplicationQuit()
     {
-		for (int i = 0; i < j.Count; ++i)
-		{
-			j[i].Detach ();
-		}
+        CleanupJoycons();
+    }
+
+    // 統一的清理函數
+    private void CleanupJoycons()
+    {
+        if (j == null) return;
+
+        foreach (var jc in j)
+        {
+            if (jc == null) continue;
+
+
+            try
+            {
+                // 這是你剛剛在 Joycon.cs 新增的 Close()
+                jc.Close();
+            }
+            catch { }
+        }
+
+        j.Clear();
+
+        try
+        {
+            // 把 HID library 也關掉，避免殘留
+            HIDapi.hid_exit();
+        }
+        catch { }
     }
 }
+

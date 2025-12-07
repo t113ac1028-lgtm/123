@@ -130,16 +130,20 @@ public class ProjectileHoming : MonoBehaviour
     }
 
     void DoHit()
+{
+    if (damage != null)
     {
-        if (damage != null)
-        {
-            if (isSlam) damage.AddSlam(strength01, transform.position);
-            else        damage.AddSlash(strength01, transform.position);
-        }
-        if (combo != null) combo.AddHit();
-
-        if (hitEffect) Destroy(Instantiate(hitEffect, transform.position, Quaternion.identity), 0.8f);
-
-        Destroy(gameObject);
+        if (isSlam) damage.AddSlam(strength01, transform.position);
+        else        damage.AddSlash(strength01, transform.position);
     }
+
+    // 不再直接動 combo，交給 DamageCalculator 裡的 RegisterHit 處理
+    // if (combo != null) combo.AddHit();
+
+    if (hitEffect)
+        Destroy(Instantiate(hitEffect, transform.position, Quaternion.identity), 0.8f);
+
+    Destroy(gameObject);
+}
+
 }
