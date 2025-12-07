@@ -590,17 +590,17 @@ MonoBehaviour:
   strengthSpeedMin: 1
   strengthSpeedMax: 80
   hand: {fileID: 204793978}
-  minDownSpeed: 15
-  minTotalSpeed: 30
-  verticalDominance: 1.8
-  maxAngleFromDown: 35
-  resetDownSpeed: 1.6
-  cooldown: 0.28
+  minDownSpeed: 12
+  minTotalSpeed: 25
+  verticalDominance: 1.2
+  maxAngleFromDown: 60
+  resetDownSpeed: 2.4
+  cooldown: 0.2
   velocitySmoothing: 0.3
-  warmupTime: 0.6
+  warmupTime: 0.2
   baselineCalibTime: 0.6
-  baselineMargin: 1.8
-  minDownDisplacement: 7
+  baselineMargin: 1.6
+  minDownDisplacement: 6
   minUpPrimeDisplacement: 7
   upPrimeTimeout: 1
   OnDownSwing:
@@ -858,9 +858,9 @@ MonoBehaviour:
   captureOnStart: 1
   captureViewX: 1
   captureDepth: 1
-  inputSmooth: 10
-  outputSmooth: 12
-  trackWindowSec: 1.2
+  inputSmooth: 16
+  outputSmooth: 18
+  trackWindowSec: 1
   guardMargin: 0.02
   minRange: 0.08
 --- !u!4 &315516930 stripped
@@ -3390,9 +3390,9 @@ MonoBehaviour:
   captureOnStart: 1
   captureViewX: 1
   captureDepth: 1
-  inputSmooth: 10
-  outputSmooth: 12
-  trackWindowSec: 1.2
+  inputSmooth: 16
+  outputSmooth: 18
+  trackWindowSec: 1
   guardMargin: 0.02
   minRange: 0.08
 --- !u!4 &1123785129 stripped
@@ -3963,7 +3963,7 @@ MonoBehaviour:
   baseColor: {r: 1, g: 1, b: 1, a: 1}
   hitFlashColor: {r: 1, g: 0.23, b: 0.19, a: 1}
   resetWindowSec: 3
-  slamBonus: 1
+  slamBonus: 2
   punchScaleSlash: 1.15
   punchScaleSlam: 1.28
   punchTime: 0.14
@@ -4470,17 +4470,17 @@ MonoBehaviour:
   strengthSpeedMin: 1
   strengthSpeedMax: 80
   hand: {fileID: 1560529317}
-  minDownSpeed: 15
-  minTotalSpeed: 30
-  verticalDominance: 1.8
-  maxAngleFromDown: 35
-  resetDownSpeed: 1.6
-  cooldown: 0.28
+  minDownSpeed: 12
+  minTotalSpeed: 25
+  verticalDominance: 1.2
+  maxAngleFromDown: 60
+  resetDownSpeed: 2.4
+  cooldown: 0.2
   velocitySmoothing: 0.3
-  warmupTime: 0.6
+  warmupTime: 0.2
   baselineCalibTime: 0.6
-  baselineMargin: 1.8
-  minDownDisplacement: 7
+  baselineMargin: 1.6
+  minDownDisplacement: 6
   minUpPrimeDisplacement: 7
   upPrimeTimeout: 1
   OnDownSwing:
