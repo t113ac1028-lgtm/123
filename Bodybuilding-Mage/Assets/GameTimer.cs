@@ -15,6 +15,7 @@ public class GameTimer : MonoBehaviour
     private float timeLeft;
     private bool running;
     private bool timeUpSent;
+     public float TimeLeft => timeLeft;
 
     private void Start()
     {
@@ -71,4 +72,6 @@ public class GameTimer : MonoBehaviour
             timerText.text = Mathf.CeilToInt(timeLeft).ToString();
         }
     }
+        
+
 }

@@ -3,9 +3,10 @@ using TMPro;
 using System.Collections.Generic;
 
 /// <summary>
-/// 計分邏輯（新版：只有「力量．Combo．穩定度」三個模組）
+/// 計分邏輯（力量．Combo．穩定度）
 ///  - 外部只要呼叫 AddSlash / AddSlam 並給 strength01（0~1）即可。
 ///  - 分數顯示、HitNumber、LastHit 都在這支裡一起處理。
+///  - 新增：依照 GameTimer 剩餘秒數，前半段只認 Slash、後半段只認 Slam。
 /// </summary>
 public class DamageCalculator : MonoBehaviour
 {
@@ -18,7 +19,7 @@ public class DamageCalculator : MonoBehaviour
     public TextMeshProUGUI scoreText;
     public TextMeshProUGUI lastHitText;
     public TextMeshProUGUI debugStrengthText;
-    
+
     [Header("Hit Number (可選)")]
     public HitNumberManager hitNumbers;
     public Camera cam;
@@ -49,23 +50,22 @@ public class DamageCalculator : MonoBehaviour
     public ComboCounter combo;     // 記得在 Inspector 連進來
 
     [Header("穩定度（節奏與平穩度）")]
-    [Tooltip("拿最近幾秒的揮擊來估計穩定度")]
     public float windowSec = 4f;
-    [Tooltip("希望玩家維持的目標頻率下限（次 / 秒）")]
-    public float targetHzMin = 1.3f;   // 大約 1.3 ~ 2.2 可依實測再調
-    [Tooltip("希望玩家維持的目標頻率上限（次 / 秒）")]
+    public float targetHzMin = 1.3f;
     public float targetHzMax = 2.2f;
-    [Tooltip("變異係數 <= 這個值視為非常穩定")]
-    public float cvGood = 0.15f;
-    [Tooltip("變異係數 >= 這個值視為很不穩定")]
-    public float cvBad = 0.45f;
-    [Tooltip("穩定度最低倍率（亂揮亂停也還是有分數，不會變 0）")]
+    public float cvGood       = 0.15f;
+    public float cvBad        = 0.45f;
     public float stabilityMinMul = 0.85f;
-    [Tooltip("穩定度最高倍率（維持好節奏可以拿到的上限）")]
     public float stabilityMaxMul = 1.30f;
-    // ---------- Debug / UI 用 ----------
-    [HideInInspector] public float lastHz;           // 最近計算出的頻率(次/秒)
-    [HideInInspector] public float lastStability01;  // 0~1 的穩定度分數
+
+    [HideInInspector] public float lastHz;           // 最近頻率
+    [HideInInspector] public float lastStability01;  // 0~1 穩定度
+
+    [Header("Slash / Slam 階段切換")]
+    [Tooltip("把 GameTimer 拖進來，用來判斷目前剩餘秒數")]
+    public GameTimer timer;
+    [Tooltip("剩餘秒數 <= 這個值時，進入 Slam 階段（例如 15 秒）")]
+    public float slamPhaseThreshold = 15f;
 
     int total;
     readonly Queue<float> hitTimes = new Queue<float>();
@@ -77,39 +77,66 @@ public class DamageCalculator : MonoBehaviour
         total = 0;
         if (scoreText)    scoreText.text = $"{total:000000}";
         if (lastHitText)  lastHitText.text = string.Empty;
+        hitTimes.Clear();
     }
 
-    /// <summary>一般 Slash 命中</summary>
+    /// <summary>一般 Slash 命中（由 AltAndSlamCoordinator 呼叫）</summary>
     public void AddSlash(float strength01, Vector3 worldFrom)
     {
-        if (debugStrengthText)
-            debugStrengthText.text = $"STR {strength01:0.00}";
-
-        int dmg = Mathf.RoundToInt(ComputeDamage(strength01, isSlam: false));
-        // 🔊 播放 Slash 音效
-        PlaySfx(slashSfx);
-        ApplyScore(dmg, worldFrom);
+        HandleAttack(strength01, worldFrom, isSlamRequested: false);
     }
 
-    /// <summary>Slam 命中</summary>
+    /// <summary>Slam 命中（由 AltAndSlamCoordinator 呼叫）</summary>
     public void AddSlam(float strength01, Vector3 worldFrom)
+    {
+        HandleAttack(strength01, worldFrom, isSlamRequested: true);
+    }
+
+    // 統一進入口：在這裡依時間段「最後決定」是 Slash 還是 Slam
+    void HandleAttack(float strength01, Vector3 worldFrom, bool isSlamRequested)
     {
         if (debugStrengthText)
             debugStrengthText.text = $"STR {strength01:0.00}";
 
-        int dmg = Mathf.RoundToInt(ComputeDamage(strength01, isSlam: true));
+        bool isSlamActual = DecideSlamByPhase(isSlamRequested);
 
-        // 🔊 播放 Slam 音效
-        PlaySfx(slamSfx);
-    
+        // 1. 先更新 Combo（這裡 slam 才會真的多 +1）
+        if (combo != null)
+        {
+            combo.RegisterHit(isSlamActual, strength01);
+        }
+
+        // 2. 算傷害
+        int dmg = Mathf.RoundToInt(ComputeDamage(strength01, isSlamActual));
+
+        // 3. 播音效
+        PlaySfx(isSlamActual ? slamSfx : slashSfx);
+
+        // 4. 加進總分 & 顯示
         ApplyScore(dmg, worldFrom);
     }
 
-    //播音效
+    // 根據 GameTimer 決定「這一下」到底當 Slash 還是 Slam
+    bool DecideSlamByPhase(bool isSlamRequested)
+    {
+        // 沒有 Timer 就保持原本行為
+        if (timer == null)
+            return isSlamRequested;
+
+        float t = timer.TimeLeft;
+
+        // 前半段（30~16秒）：一律視為 Slash
+        if (t > slamPhaseThreshold)
+            return false;
+
+        // 後半段（15~0秒）：一律視為 Slam
+        return true;
+    }
+
+    // 播音效
     void PlaySfx(AudioClip clip)
     {
         if (audioSource == null || clip == null) return;
-
         audioSource.PlayOneShot(clip);
     }
 
@@ -120,18 +147,18 @@ public class DamageCalculator : MonoBehaviour
         float now = Time.time;
         RegisterHitTime(now);
 
-        // 1) 動作種類
+        // 1) 動作種類倍率
         float typeMul = isSlam ? slamMul : slashMul;
 
         // 2) 力量 STR 乘數
         float strengthMul = StrengthMultiplier(strength01);
 
-        // 3) Combo 乘數
+        // 3) Combo 乘數（Combo 已在 HandleAttack 先更新）
         int tier = combo ? combo.Tier(comboStep) : 0;
         tier = Mathf.Clamp(tier, 0, maxComboTier);
         float comboMul = 1f + comboTierBonus * tier;
 
-        // 4) 穩定度乘數（同時看節奏區間與平穩度）
+        // 4) 穩定度乘數
         float stabilityMul = StabilityMultiplier();
 
         float dmg = baseDamage * typeMul * strengthMul * comboMul * stabilityMul;
@@ -143,26 +170,17 @@ public class DamageCalculator : MonoBehaviour
         strength01 = Mathf.Clamp01(strength01);
 
         if (strength01 < minStrength)
-        {
-            // 太小力：不給完全 0 分，給一個保底
             return veryLowStrengthMul;
-        }
 
-        // 把 [minStrength, 1] 映射到 [0,1]
         float t = Mathf.InverseLerp(minStrength, 1f, strength01);
-        // 對應到 [1, strengthMaxMul]
         return Mathf.Lerp(1f, strengthMaxMul, t);
     }
 
     float StabilityMultiplier()
     {
         if (hitTimes.Count < 3)
-        {
-            // 資料太少先給中性倍率
             return 1f;
-        }
 
-        // 1) 算出各次揮擊的間隔
         int n = hitTimes.Count;
         float[] times = hitTimes.ToArray();
         float sum = 0f;
@@ -177,9 +195,8 @@ public class DamageCalculator : MonoBehaviour
         }
 
         float mean = sum / intervalCount;
-        float hz = 1f / mean;              // 平均頻率（次 / 秒）
+        float hz = 1f / mean;
 
-        // 2) 計算變異係數 CV = 標準差 / 平均
         float var = 0f;
         for (int i = 0; i < intervalCount; i++)
         {
@@ -190,11 +207,9 @@ public class DamageCalculator : MonoBehaviour
         float std = Mathf.Sqrt(var);
         float cv = (mean > 0f) ? (std / mean) : 1f;
 
-        // ---- 2-1) 平穩度評分：CV 越小越好 ----
         float stableScore = Mathf.InverseLerp(cvBad, cvGood, Mathf.Clamp(cv, 0f, 10f));
-        stableScore = Mathf.Clamp01(stableScore);   // 0 ~ 1
+        stableScore = Mathf.Clamp01(stableScore);
 
-        // ---- 2-2) 頻率區間評分：在帶內最好，稍微快/慢一點也還可以 ----
         float freqScore = 1f;
         float mid = 0.5f * (targetHzMin + targetHzMax);
         float halfRange = 0.5f * (targetHzMax - targetHzMin);
@@ -203,27 +218,21 @@ public class DamageCalculator : MonoBehaviour
             float dist = Mathf.Abs(hz - mid);
             if (dist <= halfRange)
             {
-                // 帶內：給滿分
                 freqScore = 1f;
             }
             else
             {
-                // 出帶：距離越遠扣得越多，但不會瞬間掉到 0
                 float extra = dist - halfRange;
-                float maxExtra = halfRange; // 再多一個 halfRange 視為最差
+                float maxExtra = halfRange;
                 float t = Mathf.Clamp01(extra / Mathf.Max(0.0001f, maxExtra));
-                freqScore = 1f - t;         // 1 -> 0
+                freqScore = 1f - t;
             }
         }
 
-        // ---- 2-3) 合成穩定度分數 ----
-        // 讓頻率只影響一半，真正決定好壞的是「平穩度」本身
-        float overall = stableScore * (0.5f + 0.5f * freqScore); // 0 ~ 1
-
-        // 把結果存起來給 UI 用
+        float overall = stableScore * (0.5f + 0.5f * freqScore);
         lastHz = hz;
         lastStability01 = overall;
-        // ---- 3) 映射到倍率區間 ----
+
         return Mathf.Lerp(stabilityMinMul, stabilityMaxMul, overall);
     }
 
@@ -245,5 +254,5 @@ public class DamageCalculator : MonoBehaviour
         if (hitNumbers && cam) hitNumbers.Spawn(worldFrom, dmg, cam);
     }
 
-    public int Total() => total;
+    public int Total() => total;   // 給 GamePlayController 用（原本就有的）
 }
