@@ -1,62 +1,80 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
-using MaskTransitions;   // ★ 新增：引用 MaskTransitions 才能用 TransitionManager
+using MaskTransitions;   // 轉場動畫用
 
 public class MainMenuStart : MonoBehaviour
 {
     [Header("UI")]
-    public GameObject playerIdRoot;      // 整個 ID 框（PlayerInput 那個物件）
-    public TMP_InputField playerIdInput; // 輸入欄本體
+    // 整個 ID 輸入面板（就是 PlayerIDInput 那個物件）
+    public GameObject playerIdRoot;
+    // 面板裡的 TMP_InputField
+    public TMP_InputField playerIdInput;
 
     [Header("Scene")]
-    public string gameplaySceneName = "GamePlay 30S program DEMO";
-    // 這個改成你要去的「Story 場景名稱」就好，例如 "StoryScene"
+    // 按完確認後要去的場景名稱（在 Inspector 裡改）
+    public string nextSceneName = "Story";
 
-    private bool idShown = false;  // 記錄「ID 框是不是已經打開過」
+    // 記錄 ID 面板有沒有打開過
+    private bool idShown = false;
 
+    private void Start()
+    {
+        // 保險：一開始先關掉 ID 面板
+        if (playerIdRoot != null)
+        {
+            playerIdRoot.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// 主畫面「開始」按鈕用：
+    /// 第一次按：只打開 ID 面板，不開始遊戲。
+    /// 之後的按壓就不再理它，一切交給 GoogleSheet 的確認鍵。
+    /// </summary>
     public void OnStartButtonPressed()
     {
-        // 第一次按：打開 ID 欄位就好，不進遊戲
-        if (!idShown)
-        {
-            idShown = true;
-
-            if (playerIdRoot != null)
-                playerIdRoot.SetActive(true);
-
-            if (playerIdInput != null)
-                playerIdInput.ActivateInputField(); // 讓游標自動跑進去
-
+        if (idShown)
             return;
-            // ★ 這裡直接 return，完全不會進場景，也不會播動畫
-        }
 
-        // 第二次按：檢查有沒有輸入 ID，有的話才繼續
+        idShown = true;
+
+        if (playerIdRoot != null)
+            playerIdRoot.SetActive(true);
+
+        if (playerIdInput != null)
+            playerIdInput.ActivateInputField();
+    }
+
+    /// <summary>
+    /// 給 GoogleSheetDataHandler 的 OnPlayerIDEntered 事件用。
+    /// 玩家在輸入框按下 Enter / 確認、ID 成功寫入後，就會呼叫這個。
+    /// </summary>
+    public void StartGameAfterId()
+    {
         string id = playerIdInput != null ? playerIdInput.text.Trim() : "";
 
         if (string.IsNullOrEmpty(id))
         {
-            Debug.LogWarning("請先輸入 Player ID 再開始遊戲。");
+            Debug.LogWarning("Player ID 尚未輸入，無法開始遊戲。");
             return;
         }
 
         // 設定這一局的玩家 ID
         ResultData.playerId = id;
 
-        // 先把這個玩家的舊紀錄讀進來（之後結算畫面會用）
+        // 讀取這位玩家的歷史最佳紀錄（結算畫面會用到）
         PlayerDataStore.LoadBestStats(id, out ResultData.bestScore, out ResultData.bestMaxCombo);
 
-        // ★★ 這裡改成「有轉場的載入方式」★★
+        // 用 TransitionManager 播轉場動畫載入下一個場景
         if (TransitionManager.Instance != null)
         {
-            // 用圓形/方形遮罩動畫載入目標場景（Story 或 Gameplay）
-            TransitionManager.Instance.LoadLevel(gameplaySceneName);
+            TransitionManager.Instance.LoadLevel(nextSceneName);
         }
         else
         {
-            // 安全保險：如果場景裡不小心沒放 TransitionManager，就用原本的方式
-            SceneManager.LoadScene(gameplaySceneName);
+            // 萬一場景裡沒放 TransitionManager，就退回用一般載入
+            SceneManager.LoadScene(nextSceneName);
         }
     }
 }

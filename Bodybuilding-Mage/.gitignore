@@ -76,3 +76,6 @@ crashlytics-build.properties
 
 #ignore big 
 /Assets/直條場景.fbx
+# secrets (never commit)
+Bodybuilding-Mage/Assets/ExErciseScoreSystem/Configs/credentials.json
+**/credentials.json

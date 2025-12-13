@@ -13,27 +13,35 @@ public class DownSwingDetector : MonoBehaviour
     [Header("Source")]
     public Transform hand; // 留空用自身
 
+    [Header("Reference Down Axis (重要)")]
+    [Tooltip("拖 Main Camera 進來。用玩家視角的「下」當判定基準，Joy-Con 歪一點也不會死。")]
+    public Transform referenceDown; // Main Camera
+
     [Header("Speed Gates (already stable)")]
     public float minDownSpeed = 3.2f;
     public float minTotalSpeed = 2.0f;
     public float verticalDominance = 1.8f;
-    [Range(0f,89f)] public float maxAngleFromDown = 35f;
-    public float resetDownSpeed = 1.6f;
-    public float cooldown = 0.30f;
-    [Range(0f,1f)] public float velocitySmoothing = 0.30f;
+    [Range(0f, 89f)] public float maxAngleFromDown = 35f;
+
+    [Header("Reset / Cooldown")]
+    public float resetDownSpeed = 2.4f;
+    public float cooldown = 0.2f;
+    [Range(0f, 1f)] public float velocitySmoothing = 0.3f;
 
     [Header("Warmup / Baseline")]
-    public float warmupTime = 0.6f;
+    public float warmupTime = 0.2f;
     public float baselineCalibTime = 0.6f;
-    public float baselineMargin = 1.8f;
+    public float baselineMargin = 1.6f;
 
     [Header("NEW: Displacement Gates")]
-    [Tooltip("一次下揮至少要往下移動的距離（公尺）")]
-    public float minDownDisplacement = 0.12f;         // 12 公分
-    [Tooltip("重新上膛前，必須先往上移動的距離（公尺）")]
-    public float minUpPrimeDisplacement = 0.10f;      // 10 公分
-    [Tooltip("往上預備動作的有效時間窗（秒），超過就重置計算")]
-    public float upPrimeTimeout = 0.8f;
+    [Tooltip("本次下揮累積的向下位移需達到此值才允許觸發（單位：公尺）")]
+    public float minDownDisplacement = 0.06f;
+
+    [Tooltip("預備抬手（向上）累積位移達到此值，才算完成 primed（單位：公尺）")]
+    public float minUpPrimeDisplacement = 0.05f;
+
+    [Tooltip("多久沒再抬手就清掉 primed（秒）")]
+    public float upPrimeTimeout = 1.2f;
 
     [Header("Events")]
     public UnityEvent<float> OnDownSwing = new UnityEvent<float>(); // strength 0~1
@@ -43,18 +51,12 @@ public class DownSwingDetector : MonoBehaviour
     private Vector3 _vel;
     private float _lastFireTime = -999f;
     private float _startTime;
-    private bool _armed = true;
-
-    // baseline
-    private float _sumSqDown;
-    private int   _samples;
-    private float _dynamicDownFloor;
 
     // displacement accumulators
     private float _downDisp;       // 累積向下位移（本次下揮）
     private float _upDisp;         // 累積向上位移（預備抬手）
     private float _lastUpTime;     // 最近一次有明顯向上位移的時間
-    private bool  _primed;         // 是否已完成「先抬」預備
+    private bool _primed;          // 是否已完成「先抬」預備
 
     public Vector3 Velocity => _vel;
 
@@ -63,136 +65,122 @@ public class DownSwingDetector : MonoBehaviour
         if (hand == null) hand = transform;
         _prevPos = hand.position;
         _startTime = Time.time;
-        _lastUpTime = -999f;
+
+        // 沒填 referenceDown 時，預設抓主相機（避免忘記拖）
+        if (referenceDown == null && Camera.main != null)
+            referenceDown = Camera.main.transform;
+    }
+
+    private Vector3 GetDownAxis()
+    {
+        // 玩家視角的「下」：-camera.up
+        if (referenceDown != null) return (-referenceDown.up).normalized;
+        return Vector3.down;
     }
 
     void Update()
     {
-        
-        // 🔒 還在倒數 = 不要偵測 + 順便重置狀態
-    if (!Countdown.gameStarted)
-    {
-        if (hand == null) hand = transform;
-
-        // 把上一幀位置 / 速度 / 位移清乾淨，避免一開始就誤觸發
-        _prevPos = hand.position;
-        _vel     = Vector3.zero;
-        _downDisp = 0f;
-        _upDisp   = 0f;
-        _armed    = false;
-        _primed   = false;
-
-        // 重新計算暖機基線，讓真正開始遊戲時再重新累積
-        _startTime   = Time.time;
-        _sumSqDown   = 0f;
-        _samples     = 0;
-        _dynamicDownFloor = minDownSpeed;
-
+        // ⛔ 比賽尚未開始（倒數中），完全不判定
+        if (!Countdown.gameStarted)
         return;
-    }
 
-        float dt = Mathf.Max(Time.deltaTime, 1e-5f);
+        float now = Time.time;
+        Vector3 downAxis = GetDownAxis();
 
-        // 估速度
-        Vector3 rawVel = (hand.position - _prevPos) / dt;
-        _prevPos = hand.position;
-        _vel = Vector3.Lerp(rawVel, _vel, velocitySmoothing);
+        // --- velocity (world) ---
+        Vector3 pos = hand.position;
+        Vector3 rawVel = (pos - _prevPos) / Mathf.Max(Time.deltaTime, 1e-5f);
+        _prevPos = pos;
 
-        float downSpeed = Mathf.Max(0f, -_vel.y);
-        float upSpeed   = Mathf.Max(0f,  _vel.y);
-        float horizSpd  = new Vector2(_vel.x, _vel.z).magnitude;
-        float totalSpd  = _vel.magnitude;
+        // smoothing：t 越小越跟手（越不延遲）
+        float t = Mathf.Clamp01(velocitySmoothing);
+        _vel = Vector3.Lerp(rawVel, _vel, t);
 
-        // 暖機 / 基線估計
-        float t = Time.time - _startTime;
-        if (t <= baselineCalibTime)
+        // 早期暖機不判定（避免啟動抖動）
+        if (now - _startTime < warmupTime)
+            return;
+
+        // --- speeds relative to downAxis ---
+        float downSpeed = Mathf.Max(0f, Vector3.Dot(_vel, downAxis));     // 往「玩家視角下」的速度
+        float upSpeed   = Mathf.Max(0f, Vector3.Dot(_vel, -downAxis));    // 往「玩家視角上」的速度
+
+        // lateral = 去掉 downAxis 分量後的速度大小
+        Vector3 lateral = _vel - downAxis * Vector3.Dot(_vel, downAxis);
+        float horizSpd = lateral.magnitude;
+
+        float totalSpd = _vel.magnitude;
+
+        // --- displacement accumulation (also relative to downAxis) ---
+        Vector3 delta = rawVel * Time.deltaTime; // 用 rawVel 比較敏感
+        float downDispStep = Mathf.Max(0f, Vector3.Dot(delta, downAxis));
+        float upDispStep   = Mathf.Max(0f, Vector3.Dot(delta, -downAxis));
+
+        // reset downDisp：當動作停止/反向時，讓下一次更容易重新累積
+        if (downSpeed <= resetDownSpeed && downDispStep <= 1e-4f)
         {
-            _sumSqDown += downSpeed * downSpeed;
-            _samples++;
-        }
-        if (_samples > 0) _dynamicDownFloor = Mathf.Sqrt(_sumSqDown / _samples) * baselineMargin;
-        if (t < warmupTime) return;
-
-        // 角度條件（接近世界向下）
-        bool anglePass = true;
-        if (totalSpd > 1e-3f)
-        {
-            float cosA = Vector3.Dot(_vel.normalized, Vector3.down);
-            float cosMax = Mathf.Cos(maxAngleFromDown * Mathf.Deg2Rad);
-            anglePass = (cosA >= cosMax);
-        }
-
-        // —— 位移累積（用位置積分，對抗手腕小抖）——
-        // 只在該方向速度大於小雜訊門檻時才累計，避免微抖積分
-        float tiny = 0.2f; // 20cm/s 以下視為雜訊，不計入位移
-        if (upSpeed > tiny)
-        {
-            _upDisp   += upSpeed * dt;
-            _lastUpTime = Time.time;
-        }
-        if (downSpeed > tiny)
-        {
-            _downDisp += downSpeed * dt;
+            _downDisp = Mathf.Max(0f, _downDisp - 0.5f * Time.deltaTime);
         }
 
-        // 上揮預備（Prime）：在時間窗內上移超過門檻才算完成預備
-        if (!_primed)
+        _downDisp += downDispStep;
+
+        if (upDispStep > 1e-4f)
         {
-            bool upWindowValid = (Time.time - _lastUpTime) <= upPrimeTimeout;
-            if (upWindowValid && _upDisp >= minUpPrimeDisplacement)
+            _upDisp += upDispStep;
+            _lastUpTime = now;
+
+            if (_upDisp >= minUpPrimeDisplacement)
                 _primed = true;
-            else if (!upWindowValid)
-                _upDisp = 0f; // 超時就重算上揮預備
         }
 
-        // 觸發條件
-        bool cooled       = (Time.time - _lastFireTime) >= cooldown;
-        bool strongDown   = downSpeed >= Mathf.Max(minDownSpeed, _dynamicDownFloor);
-        bool notJitter    = totalSpd  >= minTotalSpeed;
-        bool verticalLead = (horizSpd <= 1e-3f) ? true : (downSpeed / Mathf.Max(1e-3f, horizSpd) >= verticalDominance);
-        bool enoughTravel = _downDisp >= minDownDisplacement; // ★ 新增：必須真的往下走過一段距離
-        bool primedReady  = _primed;                          // ★ 新增：必須先有上揮預備
-
-        if (_armed && cooled && anglePass && strongDown && notJitter && verticalLead && enoughTravel && primedReady)
-        {
-            // 決定 0 與 1 對應的速度範圍
-float sMin = (strengthSpeedMin <= 0f) ? minDownSpeed : strengthSpeedMin;
-float sMax = (strengthSpeedMax <= sMin + 0.1f) ? sMin + 0.1f : strengthSpeedMax;
-
-// 把實際向下速度映射成 0~1 的強度
-float strength = Mathf.InverseLerp(sMin, sMax, downSpeed);
-strength = Mathf.Clamp01(strength);
-
-OnDownSwing.Invoke(strength);
-
-            _lastFireTime = Time.time;
-            _armed  = false;
-            _primed = false;
-
-            // 發射後重置此次位移累計
-            _downDisp = 0f;
-            _upDisp   = 0f;
-        }
-
-        // 重新上膛條件：速度回落，且水平不大；同時重置「下揮位移」
-        if (!_armed && downSpeed <= resetDownSpeed && horizSpd <= resetDownSpeed)
-        {
-            _armed = true;
-            _downDisp = 0f;
-            // 不重置 _upDisp，讓使用者可以接著往上抬來達成下一次「Prime」
-        }
-
-        // 若一直沒有再上抬，過了時間窗則清掉上揮預備的位移
-        if (_upDisp > 0f && (Time.time - _lastUpTime) > upPrimeTimeout)
+        // 若一直沒有再上抬，過了時間窗則清掉上揮預備
+        if (_upDisp > 0f && (now - _lastUpTime) > upPrimeTimeout)
         {
             _upDisp = 0f;
             _primed = false;
         }
-        if (Time.frameCount % 10 == 0)
-    {
-        Debug.Log($"downSpeed={downSpeed:F2}, totalSpd={totalSpd:F2}, " +
-                  $"downDisp={_downDisp:F3}, upDisp={_upDisp:F3}");
-    }
-        
+
+        // cooldown
+        if (now - _lastFireTime < cooldown)
+            return;
+
+        // angle gate（相對於 downAxis，不再用 Vector3.down）
+        bool anglePass = false;
+        if (totalSpd > 1e-3f)
+        {
+            float cosA = Vector3.Dot(_vel / totalSpd, downAxis);
+            float cosMax = Mathf.Cos(maxAngleFromDown * Mathf.Deg2Rad);
+            anglePass = (cosA >= cosMax);
+        }
+
+        // dominance gate：down 相對 lateral
+        bool dominancePass = (downSpeed >= verticalDominance * Mathf.Max(1e-3f, horizSpd));
+
+        // baseline margin（可保留你原本風格：讓門檻更穩）
+        float effectiveMinDown = minDownSpeed; // 若你有 baseline 校正可在此加成
+        float effectiveMinTotal = minTotalSpeed;
+
+        // final gates
+        bool speedPass = (downSpeed >= effectiveMinDown) && (totalSpd >= effectiveMinTotal);
+        bool dispPass = (_downDisp >= minDownDisplacement);
+        bool primedPass = _primed;
+
+        if (speedPass && dominancePass && anglePass && dispPass && primedPass)
+        {
+            float strength = Mathf.InverseLerp(strengthSpeedMin, strengthSpeedMax, downSpeed);
+            strength = Mathf.Clamp01(strength);
+
+            OnDownSwing.Invoke(strength);
+
+            _lastFireTime = now;
+            _downDisp = 0f;
+
+            // 觸發後，重置 primed（需要再抬一次才能再出）
+            _upDisp = 0f;
+            _primed = false;
+        }
+
+        // Debug（需要的話打開）
+        // if (Time.frameCount % 10 == 0)
+        //     Debug.Log($"downSpeed={downSpeed:F2}, totalSpd={totalSpd:F2}, downDisp={_downDisp:F3}, upDisp={_upDisp:F3}, primed={_primed}");
     }
 }

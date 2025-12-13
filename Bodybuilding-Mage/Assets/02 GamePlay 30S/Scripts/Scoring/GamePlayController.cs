@@ -119,6 +119,24 @@ public class GamePlayController : MonoBehaviour
         // 更新這個玩家的最佳紀錄
         PlayerDataStore.UpdateBestForCurrentRun();
 
+        try
+{
+    if (GoogleSheetDataHandler.Instance != null)
+    {
+        GoogleSheetDataHandler.Instance.UploadScore(finalScore);
+    }
+    else
+    {
+        Debug.LogWarning("[Score] GoogleSheetDataHandler.Instance is null -> skip upload.");
+    }
+}
+catch (System.Exception e)
+{
+    Debug.LogWarning("[Score] UploadScore failed: " + e.Message);
+}
+
+        // ✅ 不管上傳成功與否，都要進結算畫面
         SceneManager.LoadScene("ResultScene");
+
     }
 }
