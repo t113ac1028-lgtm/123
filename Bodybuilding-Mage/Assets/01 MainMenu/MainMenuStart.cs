@@ -1,80 +1,98 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
-using MaskTransitions;   // 轉場動畫用
+using MaskTransitions;
 
 public class MainMenuStart : MonoBehaviour
 {
-    [Header("UI")]
-    // 整個 ID 輸入面板（就是 PlayerIDInput 那個物件）
+    [Header("UI (可不填，會自動找)")]
     public GameObject playerIdRoot;
-    // 面板裡的 TMP_InputField
     public TMP_InputField playerIdInput;
 
     [Header("Scene")]
-    // 按完確認後要去的場景名稱（在 Inspector 裡改）
-    public string nextSceneName = "Story";
+    public string storySceneName = "Story";
+    public string gameplaySceneName = "GamePlay 30S program DEMO";
 
-    // 記錄 ID 面板有沒有打開過
     private bool idShown = false;
 
-    private void Start()
+    private void OnEnable()
     {
-        // 保險：一開始先關掉 ID 面板
-        if (playerIdRoot != null)
-        {
-            playerIdRoot.SetActive(false);
-        }
+        // 回到 MainMenu 時，確保可以重新按 Start
+        idShown = false;
+
+        // 回到 MainMenu 時，先把輸入框藏起來（如果找得到）
+        ResolveUI();
+        if (playerIdRoot != null) playerIdRoot.SetActive(false);
     }
 
     /// <summary>
-    /// 主畫面「開始」按鈕用：
-    /// 第一次按：只打開 ID 面板，不開始遊戲。
-    /// 之後的按壓就不再理它，一切交給 GoogleSheet 的確認鍵。
+    /// 自動找到 DontDestroyOnLoad 裡的 PlayerIdInput（避免 Missing）
     /// </summary>
+    private void ResolveUI()
+    {
+        if (playerIdRoot != null && playerIdInput != null) return;
+
+        // ✅ 這個可以找「包含 inactive」的所有物件
+        var all = Object.FindObjectsByType<Transform>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None
+        );
+
+        foreach (var t in all)
+        {
+            if (t != null && t.name == "PlayerIDInput")
+            {
+                playerIdRoot = t.gameObject;
+                playerIdInput = playerIdRoot.GetComponentInChildren<TMP_InputField>(true);
+                break;
+            }
+        }
+
+        if (playerIdRoot == null)
+            Debug.LogWarning("[MainMenuStart] 找不到 PlayerIdInput（請確認物件名稱真的叫 PlayerIDInput）");
+
+        if (playerIdRoot != null && playerIdInput == null)
+            Debug.LogWarning("[MainMenuStart] 找到了 PlayerIdInput，但底下找不到 TMP_InputField");
+    }
     public void OnStartButtonPressed()
     {
-        if (idShown)
-            return;
+        ResolveUI();
 
+        if (idShown) return;
         idShown = true;
 
         if (playerIdRoot != null)
             playerIdRoot.SetActive(true);
 
         if (playerIdInput != null)
+        {
+            playerIdInput.text = "";
             playerIdInput.ActivateInputField();
+            playerIdInput.Select();
+        }
+        else
+        {
+            Debug.LogWarning("找不到 PlayerIdInput / TMP_InputField，請確認 DontDestroy 裡的物件名稱是 PlayerIdInput。");
+        }
     }
 
-    /// <summary>
-    /// 給 GoogleSheetDataHandler 的 OnPlayerIDEntered 事件用。
-    /// 玩家在輸入框按下 Enter / 確認、ID 成功寫入後，就會呼叫這個。
-    /// </summary>
-    public void StartGameAfterId()
+    // 給 GoogleSheetDataHandler / Bridge 呼叫（你現在的流程）
+    public void StartGameAfterId(string id)
     {
-        string id = playerIdInput != null ? playerIdInput.text.Trim() : "";
-
+        id = (id ?? "").Trim();
         if (string.IsNullOrEmpty(id))
         {
             Debug.LogWarning("Player ID 尚未輸入，無法開始遊戲。");
             return;
         }
 
-        // 設定這一局的玩家 ID
         ResultData.playerId = id;
-
-        // 讀取這位玩家的歷史最佳紀錄（結算畫面會用到）
         PlayerDataStore.LoadBestStats(id, out ResultData.bestScore, out ResultData.bestMaxCombo);
 
-        // 用 TransitionManager 播轉場動畫載入下一個場景
+        // 進 Story（不是 Gameplay）
         if (TransitionManager.Instance != null)
-        {
-            TransitionManager.Instance.LoadLevel(nextSceneName);
-        }
+            TransitionManager.Instance.LoadLevel(storySceneName);
         else
-        {
-            // 萬一場景裡沒放 TransitionManager，就退回用一般載入
-            SceneManager.LoadScene(nextSceneName);
-        }
+            SceneManager.LoadScene(storySceneName);
     }
 }
