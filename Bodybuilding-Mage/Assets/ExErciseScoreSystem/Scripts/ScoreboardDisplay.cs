@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SocialPlatforms.Impl;
 public enum SortOrder
 {
     Ascending,
@@ -39,11 +40,15 @@ public class ScoreboardDisplay : MonoBehaviour
         yield return new WaitUntil(() => t.IsAlive == false);
         if(sortOrder == SortOrder.Descending)
         {
-            scoreList = scoreList.OrderByDescending(r=>r[2]).ToList();
+            scoreList = scoreList.OrderByDescending(r=>float.Parse(r[2].ToString())).ToList();
         }
         else if(sortOrder == SortOrder.Ascending)
         {
-            scoreList = scoreList.OrderBy(r=>r[2]).ToList();
+            scoreList = scoreList.OrderBy(r=>float.Parse(r[2].ToString())).ToList();
+        }
+        foreach(IList<object> row in scoreList)
+        {
+            Debug.Log($"{row[0]} | {row[1]} | {row[2]}");
         }
         string str = "";
         int amount = (scoreList.Count() > rankAmount) ? rankAmount : scoreList.Count();

@@ -9,12 +9,10 @@ using System.IO;
 using System;
 using Google.Apis.Sheets.v4.Data;
 using System.Linq;
-
 using UnityEngine.Events;
 using TMPro;
-using UnityEngine.UI;
 
-//using Google.Protobuf.WellKnownTypes;
+
 public class GoogleSheetDataHandler : MonoBehaviour
 {
     static public GoogleSheetDataHandler Instance;
@@ -30,7 +28,7 @@ public class GoogleSheetDataHandler : MonoBehaviour
     
     public string PlayerID {get;set;}
 
-    private static readonly string sheetID = "1EdjiH8Itg6wNBf4MS9IlT-j5yYkFqR3uqo0Toic28N8";
+    private static readonly string sheetID = "1yEwvS0Ol1dWWUqCm3RoTPN3qDOm2LGqTKUdx6LuGbC8";
   
     private static readonly string[] Scopes = { SheetsService.Scope.Spreadsheets };
     
@@ -134,10 +132,10 @@ public class GoogleSheetDataHandler : MonoBehaviour
             Debug.LogError($"Connection Error. Check your network environment");
         }
     }
-    //void Start()
-    //{
-    //   ShowInputField();
-    //}
+    void Start()
+    {
+        ShowInputField();
+    }
     private async Task<bool> CheckSheet(string sheetName)
     {
         var request = service.Spreadsheets.Get(sheetID);

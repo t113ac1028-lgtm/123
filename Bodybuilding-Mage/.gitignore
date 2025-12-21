@@ -79,3 +79,4 @@ crashlytics-build.properties
 # secrets (never commit)
 Bodybuilding-Mage/Assets/ExErciseScoreSystem/Configs/credentials.json
 **/credentials.json
+**/Assets/TextMesh Pro/Resources/Fonts & Materials/*.asset

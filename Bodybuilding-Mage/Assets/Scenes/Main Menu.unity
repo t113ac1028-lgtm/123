@@ -2103,7 +2103,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   credentialJsonFilePath: Assets/ExErciseScoreSystem/Configs/credentials.json
-  group: 0
+  group: 4
   OnPlayerIDEntered:
     m_PersistentCalls:
       m_Calls:
