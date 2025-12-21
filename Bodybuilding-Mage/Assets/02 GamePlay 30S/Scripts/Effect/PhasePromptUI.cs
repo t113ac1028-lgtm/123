@@ -16,11 +16,23 @@ public class PhasePromptUI : MonoBehaviour
     public float blinkSpeed = 6f;           // 越大閃越快
     public float readyShowSeconds = 2.0f;   // READY 顯示多久（通常 17->15 = 2 秒）
 
-    [Header("GO Pop")]
-    public float goPopDuration = 0.25f;     // 彈出時間
+    [Header("GO Pop (Base)")]
     public float goHoldSeconds = 0.8f;      // GO 停留多久
-    public float goStartScale = 0.6f;
-    public float goEndScale = 1.0f;
+    public float goStartScale = 0.6f;       // 進場初始大小
+    public float goEndScale = 1.0f;         // 最終穩定大小（通常 1）
+
+    [Header("GO Jelly (Recommended)")]
+    [Tooltip("第一段：彈到超過 1 的最大值，越大越Q")]
+    public float goOvershootScale = 1.15f;
+
+    [Tooltip("第二段：回縮到這個比例（略小於 1），越小越像果凍")]
+    public float goSettleScale = 0.95f;
+
+    [Tooltip("彈到 overshoot 的時間（越小越有『啪』一下的感覺）")]
+    public float goOvershootTime = 0.12f;
+
+    [Tooltip("回縮/穩定的時間（越小越有彈性）")]
+    public float goSettleTime = 0.08f;
 
     bool readyPlayed = false;
     bool goPlayed = false;
@@ -78,21 +90,18 @@ public class PhasePromptUI : MonoBehaviour
         SetGroup(goGroup, true);
         goGroup.alpha = 1f;
 
-        // pop scale
         Transform goT = goGroup.transform;
         goT.localScale = Vector3.one * goStartScale;
 
-        float t = 0f;
-        while (t < goPopDuration)
-        {
-            t += Time.deltaTime;
-            float u = Mathf.Clamp01(t / goPopDuration);
-            // easeOutBack 小彈一下
-            float eased = EaseOutBack(u);
-            float s = Mathf.Lerp(goStartScale, goEndScale, eased);
-            goT.localScale = Vector3.one * s;
-            yield return null;
-        }
+        // ✅ 果凍三段回彈：
+        // ① 快速彈大到 overshoot（>1）
+        yield return ScaleTo(goT, goStartScale, goOvershootScale, goOvershootTime);
+
+        // ② 回縮到 settle（<1）
+        yield return ScaleTo(goT, goOvershootScale, goSettleScale, goSettleTime);
+
+        // ③ 穩定到 end（通常 1）
+        yield return ScaleTo(goT, goSettleScale, goEndScale, goSettleTime);
 
         goT.localScale = Vector3.one * goEndScale;
 
@@ -101,11 +110,30 @@ public class PhasePromptUI : MonoBehaviour
         SetGroup(goGroup, false);
     }
 
-    static float EaseOutBack(float x)
+    IEnumerator ScaleTo(Transform t, float from, float to, float dur)
     {
-        float c1 = 1.70158f;
-        float c3 = c1 + 1f;
-        return 1 + c3 * Mathf.Pow(x - 1, 3) + c1 * Mathf.Pow(x - 1, 2);
+        // 避免 dur=0 造成除以 0
+        if (dur <= 0.0001f)
+        {
+            t.localScale = Vector3.one * to;
+            yield break;
+        }
+
+        float time = 0f;
+        while (time < dur)
+        {
+            time += Time.deltaTime;
+            float u = Mathf.Clamp01(time / dur);
+
+            // SmoothStep 比較「軟」，果凍感更好
+            float eased = Mathf.SmoothStep(0f, 1f, u);
+
+            float s = Mathf.Lerp(from, to, eased);
+            t.localScale = Vector3.one * s;
+            yield return null;
+        }
+
+        t.localScale = Vector3.one * to;
     }
 
     void SetGroup(CanvasGroup g, bool on)

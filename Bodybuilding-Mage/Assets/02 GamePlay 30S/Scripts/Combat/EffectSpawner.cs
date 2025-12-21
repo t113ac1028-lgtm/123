@@ -54,6 +54,27 @@ public class EffectSpawner : MonoBehaviour
 
         // Alt Swing 用：依時間段決定要生 Slash 還是 Slam 特效
         // Alt Swing 用：只有在 Slash 段才會生 Slash 特效
+
+    // --- 這段是新增的測試代碼 ---
+    void Update()
+    {
+        // 按下【空白鍵】模擬「右手揮擊」
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            // 呼叫原本的發射函式 (模擬右手, 力道100%)
+            SpawnSlashProjectile("Right", 1.0f);
+            
+            // 如果你想測那種會自動變 Slam 的邏輯，也可以改用這行：
+            // SpawnSwingByPhase("Right", 1.0f);
+        }
+
+        // 按下【左邊 Ctrl】模擬「雙手重擊 (Slam)」
+        if (Input.GetKeyDown(KeyCode.LeftControl))
+        {
+            SpawnSlamProjectile(1.0f);
+        }
+    }
+    // -------------------------
     public void SpawnSwingByPhase(string who, float strength)
     {
         // 後半段（Slam Phase）就不生任何特效

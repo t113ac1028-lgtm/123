@@ -20,7 +20,7 @@ public class ProjectileHoming : MonoBehaviour
     public DamageCalculator damage;
     public ComboCounter combo;
     public bool isSlam = false;
-    [Range(0f,1f)] public float strength01 = 1f;
+    [Range(0f, 1f)] public float strength01 = 1f;
 
     [Header("Curves (可在 Inspector 微調味道)")]
     [Tooltip("上拋量隨時間的曲線：0→先多、到 1 收斂回 0。")]
@@ -54,17 +54,17 @@ public class ProjectileHoming : MonoBehaviour
                        GameObject hitFx, DamageCalculator dmg, ComboCounter cmb,
                        bool slam, float str01)
     {
-        target      = tgt;
-        speed       = spd;
-        maxLife     = life;
-        upwardBias  = upBias;
-        hitEffect   = hitFx;
-        damage      = dmg;
-        combo       = cmb;
-        isSlam      = slam;
-        strength01  = str01;
+        target = tgt;
+        speed = spd;
+        maxLife = life;
+        upwardBias = upBias;
+        hitEffect = hitFx;
+        damage = dmg;
+        combo = cmb;
+        isSlam = slam;
+        strength01 = str01;
 
-        _vel  = transform.forward * speed;   // 以 Prefab 的朝向為初速
+        _vel = transform.forward * speed;   // 以 Prefab 的朝向為初速
         _life = 0f;
 
         // 初始尺寸
@@ -118,7 +118,7 @@ public class ProjectileHoming : MonoBehaviour
         // ---- 5) 視覺尺寸隨時間（減擋視野）----
         float s = Mathf.Max(0.001f, scaleOverLife.Evaluate(t01));
         if (visualRoot) visualRoot.localScale = _baseScale * s;
-        else            transform.localScale  = _baseScale * s;
+        else transform.localScale = _baseScale * s;
     }
 
     void OnTriggerEnter(Collider other)
@@ -130,20 +130,49 @@ public class ProjectileHoming : MonoBehaviour
     }
 
     void DoHit()
-{
-    if (damage != null)
     {
-        if (isSlam) damage.AddSlam(strength01, transform.position);
-        else        damage.AddSlash(strength01, transform.position);
+        // 1. 原本的傷害計算
+        if (damage != null)
+        {
+            if (isSlam) damage.AddSlam(strength01, transform.position);
+            else damage.AddSlash(strength01, transform.position);
+        }
+
+        // ---------------------------------------------------------
+        // 2. BOSS 受擊動畫觸發邏輯 (整合 BossHitControl)
+        // ---------------------------------------------------------
+        if (target != null)
+        {
+            // A計畫：優先嘗試尋找 BossHitControl (防抽搐管理器)
+            // GetComponentInParent 會自動往上找，直到找到掛在 Boss 最外層的那個腳本
+            BossHitControl hitCtrl = target.GetComponentInParent<BossHitControl>();
+
+            if (hitCtrl != null)
+            {
+                // 如果有掛腳本，直接交給它處理 (它會自己算次數、防抽筋)
+                hitCtrl.TryHit();
+            }
+            else
+            {
+                // B計畫：(備案) 如果沒掛 BossHitControl，就用舊的方法直接找 Animator
+                Animator bossAnim = target.GetComponentInParent<Animator>();
+                if (bossAnim != null)
+                {
+                    // Slam 必定觸發，普通攻擊 20% 機率觸發 (防止太過鬼畜)
+                    if (isSlam || Random.value < 0.2f)
+                    {
+                        bossAnim.SetTrigger("Hit");
+                    }
+                }
+            }
+        }
+        // ---------------------------------------------------------
+
+        // 3. 特效生成
+        if (hitEffect)
+            Destroy(Instantiate(hitEffect, transform.position, Quaternion.identity), 0.8f);
+
+        // 4. 銷毀飛彈自己
+        Destroy(gameObject);
     }
-
-    // 不再直接動 combo，交給 DamageCalculator 裡的 RegisterHit 處理
-    // if (combo != null) combo.AddHit();
-
-    if (hitEffect)
-        Destroy(Instantiate(hitEffect, transform.position, Quaternion.identity), 0.8f);
-
-    Destroy(gameObject);
-}
-
 }

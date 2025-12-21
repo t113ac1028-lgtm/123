@@ -30,7 +30,7 @@ public class GoogleSheetDataHandler : MonoBehaviour
     
     public string PlayerID {get;set;}
 
-    private static readonly string sheetID = "1F3WPFzz-t_doVhTCKqQXngefGx5WIdJxEygUVfcx7ss";
+    private static readonly string sheetID = "1EdjiH8Itg6wNBf4MS9IlT-j5yYkFqR3uqo0Toic28N8";
   
     private static readonly string[] Scopes = { SheetsService.Scope.Spreadsheets };
     
