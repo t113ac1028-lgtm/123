@@ -1,13 +1,18 @@
 using System.Collections;
 using UnityEngine;
 
+/// <summary>
+/// 畫面呼吸特效控制器
+/// 負責：在遊戲開始 15 秒後開啟材質特效，並在 0 秒結束時強制關閉。
+/// 修正：加入 OnDestroy/OnDisable 重置材質，以及在啟動前二次檢查遊戲狀態。
+/// </summary>
 public class BreathFXController : MonoBehaviour
 {
     [Header("目標材質 (Full Screen Material)")]
     public Material effectMaterial;
 
-    [Header("Shader 參數名稱 (跟 Shader Graph Reference 一樣)")]
-    public string freqProperty = "_BreathFreq";       // 改成你的 Reference
+    [Header("Shader 參數名稱")]
+    public string freqProperty = "_BreathFreq";
     public string intensityProperty = "_BreathIntensity";
 
     [Header("數值設定")]
@@ -17,45 +22,78 @@ public class BreathFXController : MonoBehaviour
     public float intensityOffValue = 0f;
 
     [Header("時間設定")]
-    public float startDelay = 15f;  // 遊戲開始後幾秒開特效
+    [Tooltip("遊戲開始後幾秒開啟特效 (例如 15 秒)")]
+    public float startDelay = 15f; 
 
-    Coroutine routine;
+    private Coroutine routine;
 
-    void Start()
+    void Awake()
     {
-        // 一開始完全關閉
-        SetValues(freqOffValue, intensityOffValue);
+        // 腳本一喚醒就強制重設材質球，防止上一場的殘留值
+        ResetMaterial();
     }
 
-    // 遊戲開始時呼叫
+    void OnDisable()
+    {
+        // 當物件被隱藏或場景切換時，確保特效完全消失
+        ResetMaterial();
+    }
+
+    void OnDestroy()
+    {
+        // 重要：當物件被銷毀時，將材質球屬性歸零 (避免影響其他場景)
+        ResetMaterial();
+    }
+
+    /// <summary>
+    /// 由 GamePlayController 在 StartMatch 時呼叫
+    /// </summary>
     public void StartEffect()
     {
         if (routine != null) StopCoroutine(routine);
         routine = StartCoroutine(DelayTurnOn());
     }
 
-    // 遊戲結束時呼叫
+    /// <summary>
+    /// 由 GamePlayController 在 OnTimerFinished 時呼叫
+    /// </summary>
     public void StopEffect()
     {
         if (routine != null) StopCoroutine(routine);
-        // 直接關掉，不淡出，避免閃爍
-        SetValues(freqOffValue, intensityOffValue);
+        ResetMaterial();
     }
 
     IEnumerator DelayTurnOn()
     {
-        // 先關著等時間
-        SetValues(freqOffValue, intensityOffValue);
+        // 1. 初始狀態確保是關閉的
+        ResetMaterial();
+        
+        // 2. 等待設定的時間
         yield return new WaitForSeconds(startDelay);
 
-        // 到時間後直接切到目標值
+        // ★ 核心檢查：如果等待期間遊戲已經結束 (IsPlaying 為 false)，則不執行開啟邏輯
+        // 這能解決「玩家看排行榜時特效突然冒出來」的問題
+        if (!GamePlayController.IsPlaying)
+        {
+            Debug.Log("[BreathFX] 檢測到遊戲已結束，取消開啟特效。");
+            yield break;
+        }
+
+        // 3. 正式開啟特效
         SetValues(freqOnValue, intensityOnValue);
+        Debug.Log("[BreathFX] 特效已啟動。");
+    }
+
+    private void ResetMaterial()
+    {
+        SetValues(freqOffValue, intensityOffValue);
     }
 
     void SetValues(float freq, float intensity)
     {
         if (effectMaterial == null) return;
 
+        // 設定材質球參數
         effectMaterial.SetFloat(freqProperty, freq);
         effectMaterial.SetFloat(intensityProperty, intensity);
     }

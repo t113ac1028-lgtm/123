@@ -95,11 +95,6 @@ MonoBehaviour:
   nameText: {fileID: 223351950014684553}
   scoreText: {fileID: 2285433156122761642}
   comboText: {fileID: 0}
-  backgroundImage: {fileID: 8469664416243552275}
-  goldColor: {r: 1, g: 0.84, b: 0, a: 1}
-  silverColor: {r: 0.75, g: 0.75, b: 0.75, a: 1}
-  bronzeColor: {r: 0.8, g: 0.5, b: 0.2, a: 1}
-  normalColor: {r: 1, g: 1, b: 1, a: 0.5}
 --- !u!1 &5924571673535277941
 GameObject:
   m_ObjectHideFlags: 0

@@ -24319,6 +24319,9 @@ MonoBehaviour:
     m_Bits: 0
   hitEffect: {fileID: 1116249604692860204, guid: a16d89b9aa61a4c4397c46fc3b4c4017,
     type: 3}
+  baseHitEffectScale: 1.3
+  strengthImpactScale: 1.6
+  impactColor: {r: 1, g: 1, b: 1, a: 1}
   damage: {fileID: 0}
   combo: {fileID: 0}
   isSlam: 0

@@ -1,20 +1,31 @@
 using UnityEngine;
 
+/// <summary>
+/// 控制飛彈的飛行與追蹤邏輯。
+/// 包含：結算攔截、打擊特效隨機化、縮放與顏色同步。
+/// </summary>
 public class ProjectileHoming : MonoBehaviour
 {
     [Header("Targeting / Motion")]
-    public Transform target;                 // Boss 目標（Spawner 會帶進來）
+    public Transform target;                 
     public float speed = 12f;
-    public float maxLife = 2.0f;             // 存活秒數
-    [Tooltip("基礎的上拋量，會乘上 loftOverLife 曲線。")]
-    public float upwardBias = 0.25f;         // ↑ 提高一點就更拋；0.15~0.35 常用
-    [Tooltip("0~1：越大越容易黏住目標，會乘上 homingGain 曲線。")]
+    public float maxLife = 2.0f;             
+    public float upwardBias = 0.25f;         
     [Range(0f, 1f)] public float homingStrength = 0.85f;
 
     [Header("Hit Settings")]
-    public float hitDistance = 0.45f;        // 備援：距離小於此值視為命中
-    public LayerMask hitMask;                // 可留空用 Tag 判定
+    public float hitDistance = 0.45f;        
+    public LayerMask hitMask;                
     public GameObject hitEffect;
+    
+    [Header("打擊視覺強化")]
+    [Tooltip("基礎特效大小倍率 (建議 2.5)")]
+    public float baseHitEffectScale = 2.5f;
+    [Tooltip("力量強度對特效大小的影響權重 (建議 2.0)")]
+    public float strengthImpactScale = 2.0f;
+
+    // 儲存從 Spawner 傳來的顏色 (由外部直接設定屬性)
+    [HideInInspector] public Color impactColor = Color.white;
 
     [Header("Scoring")]
     public DamageCalculator damage;
@@ -22,17 +33,14 @@ public class ProjectileHoming : MonoBehaviour
     public bool isSlam = false;
     [Range(0f, 1f)] public float strength01 = 1f;
 
-    [Header("Curves (可在 Inspector 微調味道)")]
-    [Tooltip("上拋量隨時間的曲線：0→先多、到 1 收斂回 0。")]
+    [Header("Curves")]
     public AnimationCurve loftOverLife = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
-    [Tooltip("追蹤力隨時間：一開始弱、後面強，會更像『先拋後收』。")]
     public AnimationCurve homingGain = new AnimationCurve(
         new Keyframe(0f, 0.15f),
         new Keyframe(0.35f, 0.35f),
         new Keyframe(0.7f, 0.8f),
         new Keyframe(1f, 1f)
     );
-    [Tooltip("視覺大小隨時間（避免一開始擋視野）：0.7→1→0.8 之類。")]
     public AnimationCurve scaleOverLife = new AnimationCurve(
         new Keyframe(0f, 0.75f),
         new Keyframe(0.25f, 1.0f),
@@ -40,19 +48,19 @@ public class ProjectileHoming : MonoBehaviour
     );
 
     [Header("Visual (optional)")]
-    public Transform visualRoot;             // 若指定，僅改它的 scale；不指定就改整體 scale
+    public Transform visualRoot;             
 
-    // ---- runtime ----
     Vector3 _vel;
     float _life;
     Vector3 _baseScale;
 
     /// <summary>
-    /// 由 Spawner 呼叫：初始化並啟動
+    /// 由 Spawner 呼叫：初始化並啟動。
+    /// 維持 9 個參數版本以解決編譯衝突。
     /// </summary>
     public void Launch(Transform tgt, float spd, float life, float upBias,
                        GameObject hitFx, DamageCalculator dmg, ComboCounter cmb,
-                       bool slam, float str01)
+                       bool slam, float str01) 
     {
         target = tgt;
         speed = spd;
@@ -64,17 +72,17 @@ public class ProjectileHoming : MonoBehaviour
         isSlam = slam;
         strength01 = str01;
 
-        _vel = transform.forward * speed;   // 以 Prefab 的朝向為初速
+        _vel = transform.forward * speed;   
         _life = 0f;
-
-        // 初始尺寸
         _baseScale = visualRoot ? visualRoot.localScale : transform.localScale;
 
-        // 確保是 Trigger 碰撞 + Kinematic 剛體（避免穿透 & 易命中）
-        var col = GetComponent<Collider>();
-        if (!col) col = gameObject.AddComponent<SphereCollider>();
-        col.isTrigger = true;
-        if (col is SphereCollider sc && sc.radius < 0.12f) sc.radius = 0.18f;
+        // 獲取碰撞器並防呆設定
+        var projectileCol = GetComponent<Collider>();
+        if (!projectileCol) projectileCol = gameObject.AddComponent<SphereCollider>();
+        projectileCol.isTrigger = true;
+        
+        if (projectileCol is SphereCollider sc && sc.radius < 0.12f) 
+            sc.radius = 0.18f;
 
         var rb = GetComponent<Rigidbody>();
         if (!rb) rb = gameObject.AddComponent<Rigidbody>();
@@ -90,32 +98,28 @@ public class ProjectileHoming : MonoBehaviour
 
         float t01 = Mathf.Clamp01(_life / Mathf.Max(0.0001f, maxLife));
 
-        // ---- 1) 計算欲前進方向：目標方向 + 上拋量（隨時間遞減）----
         Vector3 desiredDir = transform.forward;
         Vector3 to = (target.position - transform.position);
         if (to.sqrMagnitude > 1e-6f)
         {
-            float loft = Mathf.Max(0f, loftOverLife.Evaluate(t01));           // 0..1
-            Vector3 loftVec = Vector3.up * upwardBias * loft;                 // 上拋向量
+            float loft = Mathf.Max(0f, loftOverLife.Evaluate(t01));           
+            Vector3 loftVec = Vector3.up * upwardBias * loft;                 
             desiredDir = (to.normalized + loftVec).normalized;
         }
 
-        // ---- 2) 追蹤力隨時間增強（前期弱、後期強）----
-        float gain = Mathf.Clamp01(homingGain.Evaluate(t01));                  // 0..1
+        float gain = Mathf.Clamp01(homingGain.Evaluate(t01));                  
         Vector3 desiredVel = desiredDir * speed;
-        _vel = Vector3.Lerp(_vel, desiredVel, gain * dt * 5f);                 // *5f 讓回應更明顯
+        _vel = Vector3.Lerp(_vel, desiredVel, gain * dt * 5f);                 
 
-        // ---- 3) 推進（不改 rotation，保留你 Prefab 的視覺角度）----
         transform.position += _vel * dt;
 
-        // ---- 4) 命中：Trigger 或備援距離皆可觸發 ----
         if (to.sqrMagnitude <= hitDistance * hitDistance)
         {
             DoHit();
             return;
         }
 
-        // ---- 5) 視覺尺寸隨時間（減擋視野）----
+        // 飛彈本身的縮放動畫 (視覺點綴，非力量縮放)
         float s = Mathf.Max(0.001f, scaleOverLife.Evaluate(t01));
         if (visualRoot) visualRoot.localScale = _baseScale * s;
         else transform.localScale = _baseScale * s;
@@ -131,48 +135,69 @@ public class ProjectileHoming : MonoBehaviour
 
     void DoHit()
     {
-        // 1. 原本的傷害計算
+        // ★★★ 核心門禁：如果遊戲已結束 (Playing=false)，飛彈直接消失 ★★★
+        // 同時攔截計分、音效、特效，解決 0 秒後的雜音問題。
+        if (!GamePlayController.IsPlaying)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        // 1. 傷害與 Combo 計算
         if (damage != null)
         {
             if (isSlam) damage.AddSlam(strength01, transform.position);
             else damage.AddSlash(strength01, transform.position);
         }
 
-        // ---------------------------------------------------------
-        // 2. BOSS 受擊動畫觸發邏輯 (整合 BossHitControl)
-        // ---------------------------------------------------------
+        // 2. BOSS 受擊反應
         if (target != null)
         {
-            // A計畫：優先嘗試尋找 BossHitControl (防抽搐管理器)
-            // GetComponentInParent 會自動往上找，直到找到掛在 Boss 最外層的那個腳本
             BossHitControl hitCtrl = target.GetComponentInParent<BossHitControl>();
-
             if (hitCtrl != null)
             {
-                // 如果有掛腳本，直接交給它處理 (它會自己算次數、防抽筋)
                 hitCtrl.TryHit();
             }
             else
             {
-                // B計畫：(備案) 如果沒掛 BossHitControl，就用舊的方法直接找 Animator
                 Animator bossAnim = target.GetComponentInParent<Animator>();
                 if (bossAnim != null)
                 {
-                    // Slam 必定觸發，普通攻擊 20% 機率觸發 (防止太過鬼畜)
-                    if (isSlam || Random.value < 0.2f)
-                    {
-                        bossAnim.SetTrigger("Hit");
-                    }
+                    if (isSlam || Random.value < 0.2f) bossAnim.SetTrigger("Hit");
                 }
             }
         }
-        // ---------------------------------------------------------
 
-        // 3. 特效生成
+        // ★★★ 3. 強化版打擊特效 (隨機角度、縮放、顏色注入) ★★★
         if (hitEffect)
-            Destroy(Instantiate(hitEffect, transform.position, Quaternion.identity), 0.8f);
+        {
+            // A. 生成隨機 360 度旋轉的角度
+            Quaternion randomRot = Quaternion.Euler(
+                Random.Range(0f, 360f), 
+                Random.Range(0f, 360f), 
+                Random.Range(0f, 360f)
+            );
 
-        // 4. 銷毀飛彈自己
+            GameObject vfx = Instantiate(hitEffect, transform.position, randomRot);
+            
+            // B. 計算最終縮放：基礎倍率 + (揮劍強度 * 加成權重)
+            // 如果是 Slam 重擊，特效基礎尺寸再放大 1.5 倍
+            float typeBonus = isSlam ? 1.5f : 1.0f;
+            float finalScale = (baseHitEffectScale + (strength01 * strengthImpactScale)) * typeBonus;
+            
+            vfx.transform.localScale = Vector3.one * finalScale;
+
+            // C. 注入顏色到特效內部的粒子系統中
+            ParticleSystem[] psList = vfx.GetComponentsInChildren<ParticleSystem>();
+            foreach (var ps in psList)
+            {
+                var main = ps.main;
+                main.startColor = impactColor;
+            }
+
+            Destroy(vfx, 0.8f);
+        }
+
         Destroy(gameObject);
     }
 }

@@ -1,8 +1,13 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.Collections; // 為了使用協程
-using MaskTransitions;    // 引用遮罩插件
+using System.Collections;
+using MaskTransitions;
 
+/// <summary>
+/// 遊戲流程主控制器
+/// 負責：開始遊戲、倒數結束處理、結算 UI 顯示、排行榜切換。
+/// 修正：加入 matchHandled 確保一局遊戲只會觸發一次 StartMatch。
+/// </summary>
 public class GamePlayController : MonoBehaviour
 {
     [Header("Debug / Reset")]
@@ -16,7 +21,6 @@ public class GamePlayController : MonoBehaviour
     [SerializeField] private ComboCounter combo;
 
     [Header("Full Screen Effect")]
-    [Tooltip("如果沒有這個腳本請把這行刪掉")]
     [SerializeField] private BreathFXController breathFX; 
 
     [Header("Camera Shake")]
@@ -25,139 +29,122 @@ public class GamePlayController : MonoBehaviour
     [Header("Ending Director")]
     public GameEndingDirector endingDirector;
 
-    // ★★★ UI 流程設定 ★★★
-    [Header("UI Flow - 1. 結算")]
-    [Tooltip("程式會自動抓取場景中的 Result UI")]
+    [Header("UI Flow")]
     public GameResultUI resultUI;
-
-    [Header("UI Flow - 2. 排行榜")]
-    [Tooltip("程式會自動抓取場景中的 Ranking UI")]
     public GameObject rankingUIPanel;
-    [Tooltip("程式會自動抓取")]
     public RankingListPopulator rankingPopulator;
-
-    [Header("UI Flow - 3. 離開")]
-    [Tooltip("看完排行榜後，按 Enter 要回到的場景名稱 (例如 Main Menu)")]
     public string mainMenuSceneName = "Main Menu";
 
     [Header("Match Settings")]
     [SerializeField] private bool autoStartOnSceneLoad = false;
 
     private bool playing;
-    private bool isWaitForRank = false; // 狀態：正在看結算
-    private bool isViewingRank = false; // 狀態：正在看排行榜
+    private bool matchHandled = false; // ★ 核心修正：標記這局是否已經啟動過
+    private bool isWaitForRank = false; 
+    private bool isViewingRank = false; 
 
+    // ★ 全域存取狀態：讓飛彈、發射器、Boss 知道現在是否在比賽中
     public static bool IsPlaying => Instance != null && Instance.playing;
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-        
         Time.timeScale = 1.0f;
 
-        // 自動抓取
-        if (resultUI == null) 
-            resultUI = FindObjectOfType<GameResultUI>(true);
-
-        if (rankingPopulator == null) 
-            rankingPopulator = FindObjectOfType<RankingListPopulator>(true);
-
-        if (rankingUIPanel == null && rankingPopulator != null) 
-            rankingUIPanel = rankingPopulator.gameObject;
-
-        if (cameraShake == null)
-            cameraShake = FindObjectOfType<HandheldCameraEffect>();
-
-        if (endingDirector == null)
-            endingDirector = FindObjectOfType<GameEndingDirector>();
+        // 自動搜尋遺漏的組件參考
+        if (resultUI == null) resultUI = FindObjectOfType<GameResultUI>(true);
+        if (rankingPopulator == null) rankingPopulator = FindObjectOfType<RankingListPopulator>(true);
+        if (rankingUIPanel == null && rankingPopulator != null) rankingUIPanel = rankingPopulator.gameObject;
+        if (cameraShake == null) cameraShake = FindObjectOfType<HandheldCameraEffect>();
+        if (endingDirector == null) endingDirector = FindObjectOfType<GameEndingDirector>();
 
         // 初始隱藏 UI
         if (resultUI != null) resultUI.gameObject.SetActive(false);
         if (rankingUIPanel != null) rankingUIPanel.SetActive(false);
-
-        if (cameraShake != null) cameraShake.SetShaking(true);
     }
 
     private void Start()
     {
-        if (autoStartOnSceneLoad)
-        {
-            StartMatch();
-        }
+        if (autoStartOnSceneLoad) StartMatch();
     }
 
     private void Update()
     {
-        // 1. 遊戲未開始
-        if (!playing && !autoStartOnSceneLoad && !isWaitForRank && !isViewingRank)
+        // ★ 修正重點：加入 !matchHandled 檢查。
+        // 當 Countdown 結束後，只有在還沒處理過 Match 的情況下才啟動，防止重複觸發 StartMatch。
+        if (!playing && !matchHandled && Countdown.gameStarted)
         {
-            if (Countdown.gameStarted)
-            {
-                StartMatch();
-            }
+            StartMatch();
         }
 
-        // 2. 測試用重置
-        if (enableKeyboardReset && Input.GetKeyDown(resetKey))
-        {
-            ResetGameplay();
-        }
+        // 鍵盤快速重置
+        if (enableKeyboardReset && Input.GetKeyDown(resetKey)) ResetGameplay();
 
-        // ★ 3. 結算階段 (isWaitForRank)：等待按 Enter -> 淡出內容，顯示排行榜
-        if (isWaitForRank)
-        {
-            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-            {
-                Debug.Log("[UI] Enter pressed. Switching to Ranking...");
-                StartCoroutine(AnimateSwitchToRanking());
-            }
-        }
+        // 結算畫面按 Enter 切換到排行榜
+        if (isWaitForRank && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)))
+            StartCoroutine(AnimateSwitchToRanking());
 
-        // ★ 4. 排行榜階段 (isViewingRank)：等待按 Enter -> 回主選單
-        if (isViewingRank)
-        {
-            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-            {
-                Debug.Log("[UI] Enter pressed. Going to Main Menu...");
-                GoToMainMenu();
-            }
-        }
+        // 排行榜按 Enter 返回主選單
+        if (isViewingRank && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)))
+            GoToMainMenu();
     }
 
     private void StartMatch()
     {
         if (playing) return;
         playing = true;
+        matchHandled = true; // ★ 鎖定，這局遊戲不會再重複呼叫 StartMatch
+        
         isWaitForRank = false;
         isViewingRank = false;
-        
         Time.timeScale = 1.0f;
 
         if (combo != null) combo.Clear();
+        
+        // 啟動畫面特效倒數 (15秒後出現)
         if (breathFX != null) breathFX.StartEffect();
-
-        if (rankingUIPanel != null) rankingUIPanel.SetActive(false);
-        if (resultUI != null) resultUI.gameObject.SetActive(false);
-
+        
         Debug.Log("[GamePlay] Match started");
     }
 
+    /// <summary>
+    /// 當 GameTimer 歸零時由外部呼叫。
+    /// </summary>
     public void OnTimerFinished()
     {
         if (!playing) return;
+        playing = false; // 比賽狀態結束
 
-        Debug.Log("[GamePlay] Timer finished.");
-        
-        playing = false;
-        
+        Debug.Log("[GamePlay] 0秒倒數結束！啟動三重硬鎖系統...");
+
+        // 1. 關閉發射源 (防止 0 秒後還能發射)
+        EffectSpawner spawner = FindObjectOfType<EffectSpawner>();
+        if (spawner != null) spawner.enabled = false;
+
+        AltAndSlamCoordinator coordinator = FindObjectOfType<AltAndSlamCoordinator>();
+        if (coordinator != null) coordinator.enabled = false;
+
+        // 2. 清除空中飛彈
+        ProjectileHoming[] remainingProjectiles = FindObjectsOfType<ProjectileHoming>();
+        foreach (var p in remainingProjectiles)
+        {
+            Destroy(p.gameObject);
+        }
+
+        // 3. 關閉特效與 Boss
         if (breathFX != null) breathFX.StopEffect();
+        
+        BossHitControl boss = FindObjectOfType<BossHitControl>();
+        if (boss != null)
+        {
+            boss.TurnOffLight(1.5f);
+            boss.enabled = false; 
+        }
+        
         if (cameraShake != null) cameraShake.SetShaking(false);
 
+        // 4. 啟動導演結尾演出
         if (endingDirector != null)
         {
             endingDirector.PlayEnding(EndMatch);
@@ -168,53 +155,92 @@ public class GamePlayController : MonoBehaviour
         }
     }
 
+    private void EndMatch()
+    {
+        int finalScore = damage != null ? damage.Total() : 0;
+        int maxCombo   = combo  != null ? combo.Max  : 0;
+
+        ResultData.lastScore    = finalScore;
+        ResultData.lastMaxCombo = maxCombo;
+        string currentId = ResultData.playerId;
+
+        // 排名計算邏輯
+        int oldBestScore = 0;
+        if (!string.IsNullOrEmpty(currentId))
+            PlayerDataStore.LoadBestStats(currentId, out oldBestScore, out int _);
+        
+        int oldRank = CalculateRank(currentId, oldBestScore);
+        PlayerDataStore.UpdateBestForCurrentRun(); 
+        
+        int bestScore = ResultData.bestScore;
+        int bestCombo = ResultData.bestMaxCombo;
+        int newRank = CalculateRank(currentId, bestScore);
+        
+        bool isRankUp = (newRank < oldRank) || (oldBestScore == 0 && bestScore > 0);
+
+        if (resultUI != null)
+        {
+            resultUI.ShowResult(finalScore, maxCombo, bestScore, bestCombo, currentId, newRank, isRankUp);
+            isWaitForRank = true; 
+        }
+        else
+        {
+            StartCoroutine(AnimateSwitchToRanking());
+        }
+    }
+
+    private int CalculateRank(string myId, int myScore)
+    {
+        int rank = 1;
+        if (string.IsNullOrEmpty(myId)) return rank;
+        
+        string[] allIds = PlayerDataStore.GetAllPlayerIds();
+        foreach (var id in allIds)
+        {
+            if (id == myId) continue;
+            PlayerDataStore.LoadBestStats(id, out int pScore, out int _);
+            if (pScore > myScore) rank++;
+        }
+        return rank;
+    }
+
     public void ResetGameplay()
     {
+        // 重置前確保特效關閉
+        if (breathFX != null) breathFX.StopEffect();
+        
         Time.timeScale = 1.0f;
         Time.fixedDeltaTime = 0.02f;
-        var scene = SceneManager.GetActiveScene();
-        SceneManager.LoadScene(scene.name);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     private void GoToMainMenu()
     {
+        if (breathFX != null) breathFX.StopEffect();
+        
         Time.timeScale = 1.0f;
         if (TransitionManager.Instance != null)
-        {
             TransitionManager.Instance.LoadLevel(mainMenuSceneName);
-        }
         else
-        {
             SceneManager.LoadScene(mainMenuSceneName);
-        }
     }
 
-    // ★ 切換邏輯：保留背景，只淡出內容，然後淡入排行榜
     IEnumerator AnimateSwitchToRanking()
     {
-        isWaitForRank = false; // 鎖定輸入
-
+        isWaitForRank = false; 
         float duration = 0.5f; 
 
-        // 1. 呼叫 ResultUI 裡面的淡出功能
-        // 這會只淡出你設定的 contentToFade (結算圖案)，不會動到 backgroundGroup (黑底)
         if (resultUI != null)
-        {
             yield return StartCoroutine(resultUI.FadeOutBoardRoutine(duration));
-        }
 
-        // 2. 開啟排行榜 (Fade In Ranking UI)
         if (rankingUIPanel != null)
         {
             rankingUIPanel.SetActive(true);
-            
             if (rankingPopulator != null) rankingPopulator.RefreshRanking();
 
-            // 讓排行榜慢慢浮現 (它會疊在原本的黑底之上)
             CanvasGroup rankCG = rankingUIPanel.GetComponent<CanvasGroup>();
             if (rankCG == null) rankCG = rankingUIPanel.AddComponent<CanvasGroup>();
             
-            rankCG.alpha = 0f; 
             float t = 0;
             while (t < 1f)
             {
@@ -222,64 +248,11 @@ public class GamePlayController : MonoBehaviour
                 rankCG.alpha = t;
                 yield return null;
             }
-            rankCG.alpha = 1f;
-
-            isViewingRank = true; // 開放輸入，允許回主選單
+            isViewingRank = true; 
         }
         else
         {
-            Debug.LogWarning("沒有設定 Ranking UI Panel，直接回主選單");
             GoToMainMenu();
-        }
-    }
-
-    private void EndMatch()
-    {
-        playing = false; 
-
-        int finalScore = damage != null ? damage.Total() : 0;
-        int maxCombo   = combo  != null ? combo.Max  : 0;
-
-        ResultData.lastScore    = finalScore;
-        ResultData.lastMaxCombo = maxCombo;
-
-        PlayerDataStore.UpdateBestForCurrentRun(); 
-        
-        int bestScore = ResultData.bestScore;
-        int bestCombo = ResultData.bestMaxCombo;
-        string currentId = ResultData.playerId;
-
-        int myRank = 1;
-        if (!string.IsNullOrEmpty(currentId))
-        {
-            string[] allIds = PlayerDataStore.GetAllPlayerIds();
-            foreach (var id in allIds)
-            {
-                if (id == currentId) continue;
-                PlayerDataStore.LoadBestStats(id, out int pScore, out int pCombo);
-                if (pScore > bestScore) myRank++;
-            }
-        }
-
-        try
-        {
-            if (GoogleSheetDataHandler.Instance != null)
-                GoogleSheetDataHandler.Instance.UploadScore(finalScore);
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogWarning("[Score] UploadScore failed: " + e.Message);
-        }
-
-        if (resultUI != null)
-        {
-            resultUI.ShowResult(finalScore, maxCombo, bestScore, bestCombo, currentId, myRank);
-            isWaitForRank = true; 
-        }
-        else
-        {
-            // 備案
-            StartCoroutine(AnimateSwitchToRanking());
         }
     }
 }

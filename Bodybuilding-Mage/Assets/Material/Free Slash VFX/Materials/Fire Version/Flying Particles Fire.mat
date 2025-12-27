@@ -10,6 +10,8 @@ Material:
   m_Name: Flying Particles Fire
   m_Shader: {fileID: -6465566751694194690, guid: 4115401363447dc4a80ad55d19905407,
     type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _ALPHATEST_ON
   - _SURFACE_TYPE_TRANSPARENT
@@ -24,6 +26,7 @@ Material:
   - MOTIONVECTORS
   - DepthOnly
   - SHADOWCASTER
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -126,6 +129,7 @@ Material:
     - _DstBlend: 10
     - _DstBlendAlpha: 0
     - _Emission: 1
+    - _Enable_Speed_Control: 0
     - _EnvironmentReflections: 1
     - _FlagOffset: 0
     - _GlossMapScale: 0

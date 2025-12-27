@@ -6,13 +6,12 @@ using UnityEngine.UI;
 public class GameResultUI : MonoBehaviour
 {
     [Header("UI 元件參考")]
-    [Tooltip("黑色半透明背景 (這個會保留，不會被關掉)")]
+    [Tooltip("黑色半透明背景 (這個會保留)")]
     public CanvasGroup backgroundGroup;
     
     [Tooltip("結算主面板 (用來做彈出動畫)")]
     public RectTransform mainPanel;
 
-    // ★★★ 新增：指定要淡出的物件 ★★★
     [Header("離開設定")]
     [Tooltip("切換到排行榜時，要淡出的物件 (請在你的結算圖案物件上加 CanvasGroup 並拖進來)")]
     public CanvasGroup contentToFade;
@@ -23,6 +22,19 @@ public class GameResultUI : MonoBehaviour
     public TextMeshProUGUI bestScoreText;
     public TextMeshProUGUI bestComboText;
     public TextMeshProUGUI playerInfoText;
+
+    [Header("狀態提示")]
+    [Tooltip("用來顯示 'Uploading...' 或 'Success' 的文字框")]
+    public TextMeshProUGUI uploadStatusText;
+
+    // ★★★ 新增：音效設定 ★★★
+    [Header("音效設定")]
+    [Tooltip("請掛一個 AudioSource 在這個物件上並拖進來")]
+    public AudioSource audioSource;
+    [Tooltip("跑分時的音效 (循環播放，例如快速的嘟嘟聲)")]
+    public AudioClip rollingSfx;
+    [Tooltip("分數定住時的音效 (單次播放，例如 鏘！)")]
+    public AudioClip finishSfx;
 
     [Header("動畫設定")]
     public float fadeInDuration = 0.5f;
@@ -53,12 +65,16 @@ public class GameResultUI : MonoBehaviour
             mainPanel.localScale = Vector3.zero;
         }
         
-        // 確保內容一開始是可見的 (Alpha = 1)
         if (contentToFade)
         {
             contentToFade.alpha = 1f;
             contentToFade.gameObject.SetActive(true);
         }
+
+        if (uploadStatusText) uploadStatusText.text = "";
+
+        // 自動抓取 AudioSource (如果你忘了拉)
+        if (audioSource == null) audioSource = GetComponent<AudioSource>();
     }
 
     void Update()
@@ -70,12 +86,11 @@ public class GameResultUI : MonoBehaviour
         }
     }
 
-    public void ShowResult(int score, int combo, int bestScore, int bestCombo, string playerId, int rank)
+    public void ShowResult(int score, int combo, int bestScore, int bestCombo, string playerId, int rank, bool isRankUp)
     {
         gameObject.SetActive(true);
         if (backgroundGroup) backgroundGroup.gameObject.SetActive(true);
         
-        // 重置狀態：確保內容是開著的，不然後面再玩一次會看不到
         if (contentToFade) 
         {
             contentToFade.alpha = 1f;
@@ -88,14 +103,30 @@ public class GameResultUI : MonoBehaviour
         if (playerInfoText)
         {
             string displayId = string.IsNullOrEmpty(playerId) ? "Guest" : playerId;
-            playerInfoText.text = $"{displayId}   -   Rank :   {rank}";
+            
+            // 設定箭頭
+            string rankSuffix = isRankUp ? " <color=#00FF00>↑</color>" : ""; 
+            
+            playerInfoText.text = $"{displayId}   -   Rank :   {rank}{rankSuffix}";
         }
+
+        if (uploadStatusText) uploadStatusText.text = "";
 
         StartCoroutine(ShowSequence(score, combo));
     }
 
+    public void SetUploadStatus(string message, Color color)
+    {
+        if (uploadStatusText != null)
+        {
+            uploadStatusText.text = message;
+            uploadStatusText.color = color;
+        }
+    }
+
     IEnumerator ShowSequence(int targetScore, int targetCombo)
     {
+        // --- A. 背景變黑 ---
         float t = 0;
         while (t < 1.0f)
         {
@@ -104,6 +135,7 @@ public class GameResultUI : MonoBehaviour
             yield return null;
         }
 
+        // --- B. 面板 Q 彈跳出 ---
         t = 0;
         while (t < 1.0f)
         {
@@ -111,6 +143,16 @@ public class GameResultUI : MonoBehaviour
             float scale = popCurve.Evaluate(t);
             if (mainPanel) mainPanel.localScale = Vector3.one * scale;
             yield return null;
+        }
+
+        // --- C. 數字滾動 (碼表效果) ---
+        
+        // ★ 開始播放跑分音效 (循環)
+        if (audioSource != null && rollingSfx != null)
+        {
+            audioSource.clip = rollingSfx;
+            audioSource.loop = true; // 設定為循環
+            audioSource.Play();
         }
 
         t = 0;
@@ -128,13 +170,25 @@ public class GameResultUI : MonoBehaviour
             yield return null;
         }
 
+        // 確保最後數字是對的
         if (scoreText) scoreText.text = targetScore.ToString();
         if (comboText) comboText.text = targetCombo.ToString();
+
+        // ★ 停止跑分音效，播放定格音效
+        if (audioSource != null)
+        {
+            audioSource.Stop();
+            audioSource.loop = false; // 取消循環
+            
+            if (finishSfx != null)
+            {
+                audioSource.PlayOneShot(finishSfx);
+            }
+        }
 
         isAnimationDone = true; 
     }
 
-    // ★★★ 新增：專門用來淡出內容的協程 ★★★
     public IEnumerator FadeOutBoardRoutine(float duration)
     {
         if (contentToFade != null)
@@ -144,16 +198,14 @@ public class GameResultUI : MonoBehaviour
             while (t < 1f)
             {
                 t += Time.unscaledDeltaTime / duration;
-                // 只淡出你指定的那個物件，背景不動
                 contentToFade.alpha = Mathf.Lerp(startAlpha, 0f, t);
                 yield return null;
             }
             contentToFade.alpha = 0f;
-            contentToFade.gameObject.SetActive(false); // 淡出完再把這個子物件關掉 (不關父物件)
+            contentToFade.gameObject.SetActive(false); 
         }
         else
         {
-            // 如果沒設定，就縮小 MainPanel 當作備案
             if (mainPanel != null) mainPanel.localScale = Vector3.zero;
         }
     }

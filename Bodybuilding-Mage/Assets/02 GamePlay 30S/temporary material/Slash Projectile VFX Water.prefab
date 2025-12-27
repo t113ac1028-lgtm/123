@@ -4906,7 +4906,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1115765125232577599
 Transform:
   m_ObjectHideFlags: 0
@@ -14784,7 +14784,7 @@ ParticleSystem:
       serializedVersion: 2
       minMaxState: 0
       minColor: {r: 1, g: 1, b: 1, a: 1}
-      maxColor: {r: 0, g: 0.91849303, b: 1, a: 1}
+      maxColor: {r: 0, g: 0.91849303, b: 1, a: 0.24705882}
       maxGradient:
         serializedVersion: 2
         key0: {r: 1, g: 1, b: 1, a: 1}
@@ -19672,7 +19672,7 @@ ParticleSystem:
       serializedVersion: 2
       minMaxState: 0
       minColor: {r: 1, g: 1, b: 1, a: 1}
-      maxColor: {r: 0, g: 0.8239019, b: 1, a: 1}
+      maxColor: {r: 0, g: 0.8239019, b: 1, a: 0.49019608}
       maxGradient:
         serializedVersion: 2
         key0: {r: 1, g: 1, b: 1, a: 1}
@@ -24354,7 +24354,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &6111486947380959506
 Transform:
   m_ObjectHideFlags: 0
@@ -39079,7 +39079,7 @@ ParticleSystem:
       serializedVersion: 2
       minMaxState: 0
       minColor: {r: 1, g: 1, b: 1, a: 1}
-      maxColor: {r: 0, g: 0.9510722, b: 1, a: 0.64705884}
+      maxColor: {r: 0.3160377, g: 0.79068714, b: 1, a: 0.50980395}
       maxGradient:
         serializedVersion: 2
         key0: {r: 1, g: 1, b: 1, a: 1}
@@ -43766,6 +43766,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   hitEffect: {fileID: 0}
+  baseHitEffectScale: 1.2
+  strengthImpactScale: 1.6
+  impactColor: {r: 1, g: 1, b: 1, a: 1}
   damage: {fileID: 0}
   combo: {fileID: 0}
   isSlam: 0

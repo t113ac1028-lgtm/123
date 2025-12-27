@@ -17,22 +17,34 @@ public class MainMenuStart : MonoBehaviour
 
     private void OnEnable()
     {
-        // 回到 MainMenu 時，確保可以重新按 Start
         idShown = false;
-
-        // 回到 MainMenu 時，先把輸入框藏起來（如果找得到）
         ResolveUI();
         if (playerIdRoot != null) playerIdRoot.SetActive(false);
     }
 
-    /// <summary>
-    /// 自動找到 DontDestroyOnLoad 裡的 PlayerIdInput（避免 Missing）
-    /// </summary>
+    private void Update()
+    {
+        // ★ 修正 1：同步狀態。如果 UI 在外部被關掉（SetActive(false)），idShown 必須同步回 false
+        if (playerIdRoot != null && !playerIdRoot.activeInHierarchy)
+        {
+            idShown = false;
+        }
+
+        // ★ 修正 2：按 Enter 開啟輸入框的邏輯
+        // 必須同時滿足：1. UI 還沒顯示、2. 按下 Enter、3. 當前沒人在打字（避免打 ID 時誤觸）
+        if (!idShown)
+        {
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            {
+                OnStartButtonPressed();
+            }
+        }
+    }
+
     private void ResolveUI()
     {
         if (playerIdRoot != null && playerIdInput != null) return;
 
-        // ✅ 這個可以找「包含 inactive」的所有物件
         var all = Object.FindObjectsByType<Transform>(
             FindObjectsInactive.Include,
             FindObjectsSortMode.None
@@ -47,49 +59,43 @@ public class MainMenuStart : MonoBehaviour
                 break;
             }
         }
-
-        if (playerIdRoot == null)
-            Debug.LogWarning("[MainMenuStart] 找不到 PlayerIdInput（請確認物件名稱真的叫 PlayerIDInput）");
-
-        if (playerIdRoot != null && playerIdInput == null)
-            Debug.LogWarning("[MainMenuStart] 找到了 PlayerIdInput，但底下找不到 TMP_InputField");
     }
+
     public void OnStartButtonPressed()
     {
         ResolveUI();
 
-        if (idShown) return;
-        idShown = true;
-
+        // ★ 修正 3：移除 "if (idShown) return;"。
+        // 不管 idShown 是不是 true，只要點了按鈕，我們就確保 UI 是開的並重新聚焦。
         if (playerIdRoot != null)
+        {
             playerIdRoot.SetActive(true);
+            idShown = true; // 標記為已顯示
+        }
 
         if (playerIdInput != null)
         {
-            playerIdInput.text = "";
+            // 強制聚焦。如果原本就開著但沒選中，點按鈕會幫你選回來
             playerIdInput.ActivateInputField();
             playerIdInput.Select();
+            
+            // 提示：如果你希望點擊 Start 時清空文字，保留下一行；如果不希望清空，請刪掉
+            // playerIdInput.text = ""; 
         }
         else
         {
-            Debug.LogWarning("找不到 PlayerIdInput / TMP_InputField，請確認 DontDestroy 裡的物件名稱是 PlayerIdInput。");
+            Debug.LogWarning("[MainMenu] 找不到輸入框組件，請檢查 Hierarchy 設定。");
         }
     }
 
-    // 給 GoogleSheetDataHandler / Bridge 呼叫（你現在的流程）
     public void StartGameAfterId(string id)
     {
         id = (id ?? "").Trim();
-        if (string.IsNullOrEmpty(id))
-        {
-            Debug.LogWarning("Player ID 尚未輸入，無法開始遊戲。");
-            return;
-        }
+        if (string.IsNullOrEmpty(id)) return;
 
         ResultData.playerId = id;
         PlayerDataStore.LoadBestStats(id, out ResultData.bestScore, out ResultData.bestMaxCombo);
 
-        // 進 Story（不是 Gameplay）
         if (TransitionManager.Instance != null)
             TransitionManager.Instance.LoadLevel(storySceneName);
         else

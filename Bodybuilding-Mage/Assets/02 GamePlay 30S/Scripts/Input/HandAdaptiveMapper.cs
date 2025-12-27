@@ -6,6 +6,9 @@ using UnityEngine;
 [DefaultExecutionOrder(1000)]
 public class HandAdaptiveMapperV2 : MonoBehaviour
 {
+    [Header("Debug / Outputs")]
+[Range(0,1)] public float normalized01; // 目前手勢正規化值(0..1)
+
     [Header("Refs")]
     public Transform sourceRaw;   // RawLeft / RawRight
     public Camera cam;
@@ -77,6 +80,8 @@ public class HandAdaptiveMapperV2 : MonoBehaviour
         // 位置平滑
         transform.position = Vector3.Lerp(transform.position, target,
                           1f - Mathf.Exp(-outputSmooth * Time.deltaTime));
+                          normalized01 = norm;
+
     }
 
     float GetRaw() => sourceRaw.position.y;

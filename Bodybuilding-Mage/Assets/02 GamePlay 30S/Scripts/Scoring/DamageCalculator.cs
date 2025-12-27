@@ -2,19 +2,18 @@ using UnityEngine;
 using TMPro;
 using System.Collections.Generic;
 
-
 /// <summary>
 /// 計分邏輯（力量．Combo．穩定度）
 ///  - 外部只要呼叫 AddSlash / AddSlam 並給 strength01（0~1）即可。
 ///  - 分數顯示、HitNumber、LastHit 都在這支裡一起處理。
-///  - 新增：依照 GameTimer 剩餘秒數，前半段只認 Slash、後半段只認 Slam。
+///  - 修改：在遊戲結束 (GamePlayController.IsPlaying == false) 時，拒絕任何計分與音效。
 /// </summary>
 public class DamageCalculator : MonoBehaviour
 {
     [Header("音效")]
-    public AudioSource audioSource;   // 拖一個 AudioSource 進來
-    public AudioClip slashSfx;        // 一般揮砍音效
-    public AudioClip slamSfx;         // 重擊音效
+    public AudioSource audioSource;   
+    public AudioClip slashSfx;        
+    public AudioClip slamSfx;         
 
     [Header("UI")]
     public TextMeshProUGUI scoreText;
@@ -26,35 +25,23 @@ public class DamageCalculator : MonoBehaviour
     public Camera cam;
 
     [Header("Base & Move Type")]
-    [Tooltip("所有攻擊的基礎分數")]
     public float baseDamage = 1000f;
-    [Tooltip("Slash 乘數（1 = 就是 baseDamage）")]
     public float slashMul = 1f;
-    [Tooltip("Slam 乘數（>1 代表比 slash 更吃力，分數比較高）")]
     public float slamMul = 2.2f;
 
     [Header("力量 STR")]
-    [Tooltip("低於這個強度視為太小力，只拿到 veryLowStrengthMul 的倍率")]
     [Range(0f, 1f)] public float minStrength = 0.30f;
-    [Tooltip("力量滿格時能拿到的最高倍率（在基礎分上再乘以這個）")]
     public float strengthMaxMul = 1.6f;
-    [Tooltip("低於 minStrength 時給的保底倍率")]
     public float veryLowStrengthMul = 0.3f;
 
-     [Header("Safety (防呆)")]
-    [Tooltip("兩次攻擊間至少要間隔多少秒，太密集的呼叫會被忽略")]
-    public float minAttackInterval = 0.10f;   // 你可以先用 0.10 試試
-
-    //float lastAttackTime = -999f;
+    [Header("Safety (防呆)")]
+    public float minAttackInterval = 0.10f;   
 
     [Header("Combo")]
-    [Tooltip("每 N Combo 算一階（用來給加成）")]
     public int comboStep = 5;
-    [Tooltip("每升一階 Combo 額外 +x 倍，例如 0.2 = +20%")]
     public float comboTierBonus = 0.20f;
-    [Tooltip("最多吃到幾階 Combo 加成")]
     public int maxComboTier = 4;
-    public ComboCounter combo;     // 記得在 Inspector 連進來
+    public ComboCounter combo;     
 
     [Header("穩定度（節奏與平穩度）")]
     public float windowSec = 4f;
@@ -65,13 +52,11 @@ public class DamageCalculator : MonoBehaviour
     public float stabilityMinMul = 0.85f;
     public float stabilityMaxMul = 1.30f;
 
-    [HideInInspector] public float lastHz;           // 最近頻率
-    [HideInInspector] public float lastStability01;  // 0~1 穩定度
+    [HideInInspector] public float lastHz;           
+    [HideInInspector] public float lastStability01;  
 
     [Header("Slash / Slam 階段切換")]
-    [Tooltip("把 GameTimer 拖進來，用來判斷目前剩餘秒數")]
     public GameTimer timer;
-    [Tooltip("剩餘秒數 <= 這個值時，進入 Slam 階段（例如 15 秒）")]
     public float slamPhaseThreshold = 15f;
 
     [Header("傷害數值爆炸特效")]
@@ -90,33 +75,36 @@ public class DamageCalculator : MonoBehaviour
         hitTimes.Clear();
     }
 
-    /// <summary>一般 Slash 命中（由 AltAndSlamCoordinator 呼叫）</summary>
     public void AddSlash(float strength01, Vector3 worldFrom)
     {
         HandleAttack(strength01, worldFrom, isSlamRequested: false);
     }
 
-    /// <summary>Slam 命中（由 AltAndSlamCoordinator 呼叫）</summary>
     public void AddSlam(float strength01, Vector3 worldFrom)
     {
         HandleAttack(strength01, worldFrom, isSlamRequested: true);
     }
 
-    // 統一進入口：在這裡依時間段「最後決定」是 Slash 還是 Slam
-        void HandleAttack(float strength01, Vector3 worldFrom, bool isSlamRequested)
+    void HandleAttack(float strength01, Vector3 worldFrom, bool isSlamRequested)
     {
-        // 0. 先看這一下在現在的時間段可不可以被接受
-        //    （前半段不接受 Slam，後半段不接受 Slash）
+        // ★★★ 核心修正：如果遊戲已經結束 (Time Left = 0)，直接拒絕處理 ★★★
+        // 這樣可以防止半空中的飛彈在 0 秒後撞到 Boss 產生聲音或分數
+        if (!GamePlayController.IsPlaying)
+        {
+            // Debug.Log("[Damage] 遊戲已結束，無視此攻擊。");
+            return;
+        }
+
+        // 0. 檢查時間段是否允許 (前半段不給 Slam，後半段不給 Slash)
         if (!IsAttackAllowed(isSlamRequested))
             return;
 
         if (debugStrengthText)
             debugStrengthText.text = $"STR {strength01:0.00}";
 
-        // 不再被時間改掉類型，照 AltAndSlam 判的結果來算
         bool isSlamActual = isSlamRequested;
 
-        // 1. 先更新 Combo
+        // 1. 更新 Combo
         if (combo != null)
         {
             combo.RegisterHit(isSlamActual, strength01);
@@ -125,45 +113,31 @@ public class DamageCalculator : MonoBehaviour
         // 2. 算傷害
         int dmg = Mathf.RoundToInt(ComputeDamage(strength01, isSlamActual));
 
-        // 3. 播音效
+        // 3. 播音效 (因為前面的 IsPlaying 擋住了，所以這裡絕對不會播聲)
         PlaySfx(isSlamActual ? slamSfx : slashSfx);
 
         // 4. 加進總分 & 顯示
         ApplyScore(dmg, worldFrom);
     }
 
-
-
-    // 根據 GameTimer 決定「這一下」到底當 Slash 還是 Slam
-    
-    // 播音效
     void PlaySfx(AudioClip clip)
     {
         if (audioSource == null || clip == null) return;
         audioSource.PlayOneShot(clip);
     }
 
-        // 檢查這一下攻擊在目前時間段是否被允許
     bool IsAttackAllowed(bool isSlamRequested)
     {
-        // 沒有 Timer 就不鎖，全部都算
-        if (timer == null)
-            return true;
+        if (timer == null) return true;
 
         float t = timer.TimeLeft;
         bool inSlamPhase = t <= slamPhaseThreshold;
 
-        // 前半段（Slash Phase）：不接受 Slam
-        if (!inSlamPhase && isSlamRequested)
-            return false;
-
-        // 後半段（Slam Phase）：不接受 Slash
-        if (inSlamPhase && !isSlamRequested)
-            return false;
+        if (!inSlamPhase && isSlamRequested) return false;
+        if (inSlamPhase && !isSlamRequested) return false;
 
         return true;
     }
-
 
     // ---------- 核心計算 ----------
 
@@ -172,39 +146,29 @@ public class DamageCalculator : MonoBehaviour
         float now = Time.time;
         RegisterHitTime(now);
 
-        // 1) 動作種類倍率
         float typeMul = isSlam ? slamMul : slashMul;
-
-        // 2) 力量 STR 乘數
         float strengthMul = StrengthMultiplier(strength01);
 
-        // 3) Combo 乘數（Combo 已在 HandleAttack 先更新）
         int tier = combo ? combo.Tier(comboStep) : 0;
         tier = Mathf.Clamp(tier, 0, maxComboTier);
         float comboMul = 1f + comboTierBonus * tier;
 
-        // 4) 穩定度乘數
         float stabilityMul = StabilityMultiplier();
 
-        float dmg = baseDamage * typeMul * strengthMul * comboMul * stabilityMul;
-        return dmg;
+        return baseDamage * typeMul * strengthMul * comboMul * stabilityMul;
     }
 
     float StrengthMultiplier(float strength01)
     {
         strength01 = Mathf.Clamp01(strength01);
-
-        if (strength01 < minStrength)
-            return veryLowStrengthMul;
-
+        if (strength01 < minStrength) return veryLowStrengthMul;
         float t = Mathf.InverseLerp(minStrength, 1f, strength01);
         return Mathf.Lerp(1f, strengthMaxMul, t);
     }
 
     float StabilityMultiplier()
     {
-        if (hitTimes.Count < 3)
-            return 1f;
+        if (hitTimes.Count < 3) return 1f;
 
         int n = hitTimes.Count;
         float[] times = hitTimes.ToArray();
@@ -233,24 +197,16 @@ public class DamageCalculator : MonoBehaviour
         float cv = (mean > 0f) ? (std / mean) : 1f;
 
         float stableScore = Mathf.InverseLerp(cvBad, cvGood, Mathf.Clamp(cv, 0f, 10f));
-        stableScore = Mathf.Clamp01(stableScore);
-
         float freqScore = 1f;
         float mid = 0.5f * (targetHzMin + targetHzMax);
         float halfRange = 0.5f * (targetHzMax - targetHzMin);
         if (halfRange > 0f)
         {
             float dist = Mathf.Abs(hz - mid);
-            if (dist <= halfRange)
-            {
-                freqScore = 1f;
-            }
-            else
+            if (dist > halfRange)
             {
                 float extra = dist - halfRange;
-                float maxExtra = halfRange;
-                float t = Mathf.Clamp01(extra / Mathf.Max(0.0001f, maxExtra));
-                freqScore = 1f - t;
+                freqScore = 1f - Mathf.Clamp01(extra / halfRange);
             }
         }
 
@@ -260,8 +216,6 @@ public class DamageCalculator : MonoBehaviour
 
         return Mathf.Lerp(stabilityMinMul, stabilityMaxMul, overall);
     }
-
-    // ---------- Hit 註冊與分數套用 ----------
 
     void RegisterHitTime(float t)
     {
@@ -273,17 +227,15 @@ public class DamageCalculator : MonoBehaviour
     void ApplyScore(int dmg, Vector3 worldFrom)
     {
         total += dmg;
-
         if (scoreText)   scoreText.text = $"{total:000000}";
         if (lastHitText) lastHitText.GetComponent<LastHitFade>()?.Show($"+{dmg}");
         if (hitNumbers && cam) hitNumbers.Spawn(worldFrom, dmg, cam);
 
-        // 🔥 呼叫炸分數特效（每次 JoyCon 命中都會觸發）
         if (scoreExploder != null)
         {
             scoreExploder.ExplodeScore(dmg);
         }
     }
 
-    public int Total() => total;   // 給 GamePlayController 用（原本就有的）
+    public int Total() => total;   
 }
