@@ -754,7 +754,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   audioSource: {fileID: 137009296}
-  targetVolume: 1
+  targetVolume: 0.65
   fadeInDuration: 2
   fadeOutDuration: 2
   fadeInOnStart: 1

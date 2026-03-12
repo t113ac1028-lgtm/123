@@ -150,6 +150,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: TransitionManager
       objectReference: {fileID: 0}
+    - target: {fileID: 8746815213132877900, guid: 60e223b373cd9a347945535b62afe6ed,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8965728007412277684, guid: 60e223b373cd9a347945535b62afe6ed,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -304,7 +309,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   audioSource: {fileID: 902952185}
-  targetVolume: 1
+  targetVolume: 0.75
   fadeInDuration: 2
   fadeOutDuration: 4
   fadeInOnStart: 1

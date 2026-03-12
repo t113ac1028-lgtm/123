@@ -163,7 +163,7 @@ public class GamePlayController : MonoBehaviour
         ResultData.lastScore    = finalScore;
         ResultData.lastMaxCombo = maxCombo;
         string currentId = ResultData.playerId;
-
+        GoogleSheetDataHandler.Instance.UploadScore(finalScore);
         // 排名計算邏輯
         int oldBestScore = 0;
         if (!string.IsNullOrEmpty(currentId))
