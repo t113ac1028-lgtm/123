@@ -156,38 +156,48 @@ public class GamePlayController : MonoBehaviour
     }
 
     private void EndMatch()
+{
+    int finalScore = damage != null ? damage.Total() : 0;
+    int maxCombo   = combo  != null ? combo.Max  : 0;
+
+    ResultData.lastScore    = finalScore;
+    ResultData.lastMaxCombo = maxCombo;
+
+    string currentId = ResultData.playerId;
+
+    if (GoogleSheetDataHandler.Instance != null)
     {
-        int finalScore = damage != null ? damage.Total() : 0;
-        int maxCombo   = combo  != null ? combo.Max  : 0;
-
-        ResultData.lastScore    = finalScore;
-        ResultData.lastMaxCombo = maxCombo;
-        string currentId = ResultData.playerId;
         GoogleSheetDataHandler.Instance.UploadScore(finalScore);
-        // 排名計算邏輯
-        int oldBestScore = 0;
-        if (!string.IsNullOrEmpty(currentId))
-            PlayerDataStore.LoadBestStats(currentId, out oldBestScore, out int _);
-        
-        int oldRank = CalculateRank(currentId, oldBestScore);
-        PlayerDataStore.UpdateBestForCurrentRun(); 
-        
-        int bestScore = ResultData.bestScore;
-        int bestCombo = ResultData.bestMaxCombo;
-        int newRank = CalculateRank(currentId, bestScore);
-        
-        bool isRankUp = (newRank < oldRank) || (oldBestScore == 0 && bestScore > 0);
-
-        if (resultUI != null)
-        {
-            resultUI.ShowResult(finalScore, maxCombo, bestScore, bestCombo, currentId, newRank, isRankUp);
-            isWaitForRank = true; 
-        }
-        else
-        {
-            StartCoroutine(AnimateSwitchToRanking());
-        }
     }
+    else
+    {
+        Debug.LogWarning("[GamePlayController] GoogleSheetDataHandler.Instance 為 null，跳過上傳，但仍顯示結算畫面");
+    }
+
+    // 排名計算邏輯
+    int oldBestScore = 0;
+    if (!string.IsNullOrEmpty(currentId))
+        PlayerDataStore.LoadBestStats(currentId, out oldBestScore, out int _);
+
+    int oldRank = CalculateRank(currentId, oldBestScore);
+    PlayerDataStore.UpdateBestForCurrentRun();
+
+    int bestScore = ResultData.bestScore;
+    int bestCombo = ResultData.bestMaxCombo;
+    int newRank = CalculateRank(currentId, bestScore);
+
+    bool isRankUp = (newRank < oldRank) || (oldBestScore == 0 && bestScore > 0);
+
+    if (resultUI != null)
+    {
+        resultUI.ShowResult(finalScore, maxCombo, bestScore, bestCombo, currentId, newRank, isRankUp);
+        isWaitForRank = true;
+    }
+    else
+    {
+        StartCoroutine(AnimateSwitchToRanking());
+    }
+}
 
     private int CalculateRank(string myId, int myScore)
     {

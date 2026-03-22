@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 控制飛彈的飛行與追蹤邏輯。
-/// 包含：結算攔截、打擊特效隨機化、縮放與顏色同步。
+/// 包含：結算攔截、打擊特效隨機化、縮放與顏色同步、以及護盾辨識。
 /// </summary>
 public class ProjectileHoming : MonoBehaviour
 {
@@ -24,7 +24,6 @@ public class ProjectileHoming : MonoBehaviour
     [Tooltip("力量強度對特效大小的影響權重 (建議 2.0)")]
     public float strengthImpactScale = 2.0f;
 
-    // 儲存從 Spawner 傳來的顏色 (由外部直接設定屬性)
     [HideInInspector] public Color impactColor = Color.white;
 
     [Header("Scoring")]
@@ -54,10 +53,6 @@ public class ProjectileHoming : MonoBehaviour
     float _life;
     Vector3 _baseScale;
 
-    /// <summary>
-    /// 由 Spawner 呼叫：初始化並啟動。
-    /// 維持 9 個參數版本以解決編譯衝突。
-    /// </summary>
     public void Launch(Transform tgt, float spd, float life, float upBias,
                        GameObject hitFx, DamageCalculator dmg, ComboCounter cmb,
                        bool slam, float str01) 
@@ -76,7 +71,6 @@ public class ProjectileHoming : MonoBehaviour
         _life = 0f;
         _baseScale = visualRoot ? visualRoot.localScale : transform.localScale;
 
-        // 獲取碰撞器並防呆設定
         var projectileCol = GetComponent<Collider>();
         if (!projectileCol) projectileCol = gameObject.AddComponent<SphereCollider>();
         projectileCol.isTrigger = true;
@@ -115,11 +109,11 @@ public class ProjectileHoming : MonoBehaviour
 
         if (to.sqrMagnitude <= hitDistance * hitDistance)
         {
-            DoHit();
+            // 如果因為距離太近直接命中目標，預設當作打在 Boss 身上 (false)
+            DoHit(transform.position, false);
             return;
         }
 
-        // 飛彈本身的縮放動畫 (視覺點綴，非力量縮放)
         float s = Mathf.Max(0.001f, scaleOverLife.Evaluate(t01));
         if (visualRoot) visualRoot.localScale = _baseScale * s;
         else transform.localScale = _baseScale * s;
@@ -127,31 +121,46 @@ public class ProjectileHoming : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (other != null && other.CompareTag("Boss"))
+        if (other == null) return;
+
+        // ★ 1. 檢查是否撞到護盾 ★
+        ShieldHitVFX shield = other.GetComponent<ShieldHitVFX>();
+        if (shield != null)
         {
-            DoHit();
+            Vector3 hitPoint = other.ClosestPoint(transform.position);
+            shield.TriggerShieldHit(hitPoint);
+
+            // ★ 告訴系統：這次是打在護盾上 (傳入 true)
+            DoHit(hitPoint, true);
+            return;
+        }
+
+        // 2. 檢查是否撞到 Boss 本體
+        if (other.CompareTag("Boss"))
+        {
+            // ★ 告訴系統：這次是直接打在 Boss 肉體上 (傳入 false)
+            DoHit(transform.position, false);
         }
     }
 
-    void DoHit()
+    // ★ 加入參數 isHittingShield 來控制 Boss 反應
+    void DoHit(Vector3 hitPosition, bool isHittingShield)
     {
-        // ★★★ 核心門禁：如果遊戲已結束 (Playing=false)，飛彈直接消失 ★★★
-        // 同時攔截計分、音效、特效，解決 0 秒後的雜音問題。
         if (!GamePlayController.IsPlaying)
         {
             Destroy(gameObject);
             return;
         }
 
-        // 1. 傷害與 Combo 計算
+        // 1. 傷害與 Combo 計算 (打護盾還是會算分！)
         if (damage != null)
         {
-            if (isSlam) damage.AddSlam(strength01, transform.position);
-            else damage.AddSlash(strength01, transform.position);
+            if (isSlam) damage.AddSlam(strength01, hitPosition);
+            else damage.AddSlash(strength01, hitPosition);
         }
 
-        // 2. BOSS 受擊反應
-        if (target != null)
+        // ★ 2. BOSS 受擊反應 (如果是打在護盾上，就跳過這段不執行)
+        if (target != null && !isHittingShield)
         {
             BossHitControl hitCtrl = target.GetComponentInParent<BossHitControl>();
             if (hitCtrl != null)
@@ -168,26 +177,22 @@ public class ProjectileHoming : MonoBehaviour
             }
         }
 
-        // ★★★ 3. 強化版打擊特效 (隨機角度、縮放、顏色注入) ★★★
+        // 3. 強化版打擊特效 (位置依然會出現在命中點)
         if (hitEffect)
         {
-            // A. 生成隨機 360 度旋轉的角度
             Quaternion randomRot = Quaternion.Euler(
                 Random.Range(0f, 360f), 
                 Random.Range(0f, 360f), 
                 Random.Range(0f, 360f)
             );
 
-            GameObject vfx = Instantiate(hitEffect, transform.position, randomRot);
+            GameObject vfx = Instantiate(hitEffect, hitPosition, randomRot);
             
-            // B. 計算最終縮放：基礎倍率 + (揮劍強度 * 加成權重)
-            // 如果是 Slam 重擊，特效基礎尺寸再放大 1.5 倍
             float typeBonus = isSlam ? 1.5f : 1.0f;
             float finalScale = (baseHitEffectScale + (strength01 * strengthImpactScale)) * typeBonus;
             
             vfx.transform.localScale = Vector3.one * finalScale;
 
-            // C. 注入顏色到特效內部的粒子系統中
             ParticleSystem[] psList = vfx.GetComponentsInChildren<ParticleSystem>();
             foreach (var ps in psList)
             {

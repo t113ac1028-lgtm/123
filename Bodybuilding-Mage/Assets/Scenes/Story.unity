@@ -804,7 +804,7 @@ MonoBehaviour:
     panel: {fileID: 1987511645}
     autoSkipDuration: 3
     autoSkipAfterVideo: 0
-  gameplaySceneName: GamePlay 30S program DEMO
+  gameplaySceneName: Tutorial GamePlay
   nextKeyMain: 32
   nextKeyAlt: 275
   prevKey: 276
@@ -839,7 +839,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65eb5b3ff4c8b9a49b70239daa871365, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  nextScene: GamePlay 30S program DEMO
+  nextScene: Tutorial GamePlay
 --- !u!1 &262190189
 GameObject:
   m_ObjectHideFlags: 0

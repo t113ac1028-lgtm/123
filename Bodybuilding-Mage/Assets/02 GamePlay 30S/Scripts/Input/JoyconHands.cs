@@ -38,10 +38,17 @@ public class JoyconHands : MonoBehaviour
         jcs = JoyconManager.Instance.j;
         if (jcs == null || jcs.Count == 0) { Debug.Log("❌ 沒偵測到 Joy-Con"); enabled = false; return; }
 
-        foreach (var jc in jcs) if (jc.isLeft) leftJC = jc; else rightJC = jc;
+        // ★ 核心修改：將左右手實體 Joy-Con 強制對調賦值
+        foreach (var jc in jcs) 
+        {
+            if (jc.isLeft) 
+                rightJC = jc; 
+            else 
+                leftJC = jc;
+        }
+
         if (leftJC != null)  leftJC.debug_type  = Joycon.DebugType.NONE;
         if (rightJC != null) rightJC.debug_type = Joycon.DebugType.NONE;
-
 
         if (leftHand)  { lBase = leftHand.localPosition;  lShown = lBase; }
         if (rightHand) { rBase = rightHand.localPosition; rShown = rBase; }
@@ -58,7 +65,6 @@ public class JoyconHands : MonoBehaviour
         if (rightJC != null && rightHand != null)
         UpdateOne(rightJC, rightHand, ref rShown, ref rLP, rBase, "R",
               rightHorizontal, rightVertical, rightInvertH, rightInvertV);
-
 
         // 重新定錨（+鍵）
         if ((leftJC  != null && leftJC.GetButtonDown(Joycon.Button.PLUS)) ||
