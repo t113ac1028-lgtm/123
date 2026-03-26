@@ -13,17 +13,28 @@ public class TutorialPanelUI : MonoBehaviour
     [Header("彈跳動畫目標（通常是 Message 訊息框）")]
     public RectTransform messageRoot;
 
-    [Header("可切換顯示物件")]
+    [Header("黑幕")]
     public GameObject dimBackground;
-    public GameObject videoRoot;
 
-    [Header("Text")]
+    [Header("文字")]
     public TextMeshProUGUI tutorialText;
     public float typewriterSpeed = 0.05f;
 
-    [Header("Video")]
-    public VideoPlayer videoPlayer;
+    [Header("影片區塊")]
+    public GameObject videoGroup;
+    public GameObject videoFrame;
+    public GameObject videoRoot;
     public RawImage videoRawImage;
+    public VideoPlayer videoPlayer;
+
+    [Header("前導圖片區塊")]
+    public GameObject imageGroup;
+    public GameObject imageFrame;
+    public Image introImage;
+    public CanvasGroup imageCanvasGroup;
+
+    [Header("READY 圖片（直接用你手動擺好的物件）")]
+    public GameObject readyObject;
 
     [Header("Q彈效果設定")]
     public float showDuration = 0.35f;
@@ -39,9 +50,21 @@ public class TutorialPanelUI : MonoBehaviour
         new Keyframe(1f, 0.85f)
     );
 
+    [Header("浮動效果")]
+    public RectTransform videoFloatTarget;
+    public RectTransform imageFloatTarget;
+    public RectTransform readyFloatTarget;
+    public float floatAmplitude = 8f;
+    public float floatSpeed = 1.3f;
+    public bool enableFloating = true;
+
     private Coroutine typingCoroutine;
     private bool isTyping = false;
     private Vector3 messageOriginalScale = Vector3.one;
+
+    private Vector2 videoOriginalAnchoredPos;
+    private Vector2 imageOriginalAnchoredPos;
+    private Vector2 readyOriginalAnchoredPos;
 
     public bool IsTyping => isTyping;
 
@@ -55,6 +78,55 @@ public class TutorialPanelUI : MonoBehaviour
 
         if (messageRoot != null)
             messageOriginalScale = messageRoot.localScale;
+
+        if (videoFloatTarget != null)
+            videoOriginalAnchoredPos = videoFloatTarget.anchoredPosition;
+
+        if (imageFloatTarget != null)
+            imageOriginalAnchoredPos = imageFloatTarget.anchoredPosition;
+
+        if (readyFloatTarget != null)
+            readyOriginalAnchoredPos = readyFloatTarget.anchoredPosition;
+
+        if (imageCanvasGroup != null)
+            imageCanvasGroup.alpha = 1f;
+    }
+
+    private void Update()
+    {
+        if (!enableFloating) return;
+
+        float offset = Mathf.Sin(Time.unscaledTime * floatSpeed) * floatAmplitude;
+
+        if (videoFloatTarget != null && IsVideoVisible())
+        {
+            videoFloatTarget.anchoredPosition = videoOriginalAnchoredPos + new Vector2(0f, offset);
+        }
+
+        if (imageFloatTarget != null && IsImageVisible())
+        {
+            imageFloatTarget.anchoredPosition = imageOriginalAnchoredPos + new Vector2(0f, offset);
+        }
+
+        if (readyFloatTarget != null && IsReadyVisible())
+        {
+            readyFloatTarget.anchoredPosition = readyOriginalAnchoredPos + new Vector2(0f, offset);
+        }
+    }
+
+    bool IsVideoVisible()
+    {
+        return videoGroup != null && videoGroup.activeSelf;
+    }
+
+    bool IsImageVisible()
+    {
+        return imageGroup != null && imageGroup.activeSelf;
+    }
+
+    bool IsReadyVisible()
+    {
+        return readyObject != null && readyObject.activeSelf;
     }
 
     public void SetVideo(VideoClip clip, bool loop = true)
@@ -71,6 +143,19 @@ public class TutorialPanelUI : MonoBehaviour
     {
         if (videoPlayer == null) return;
         videoPlayer.Stop();
+    }
+
+    public void SetIntroImage(Sprite sprite)
+    {
+        if (introImage != null)
+        {
+            introImage.sprite = sprite;
+        }
+
+        if (imageCanvasGroup != null)
+        {
+            imageCanvasGroup.alpha = 1f;
+        }
     }
 
     public void SetTextImmediate(string content)
@@ -118,8 +203,39 @@ public class TutorialPanelUI : MonoBehaviour
 
     public void SetVideoVisible(bool visible)
     {
-        if (videoRoot != null)
-            videoRoot.SetActive(visible);
+        if (videoGroup != null)
+            videoGroup.SetActive(visible);
+        else
+        {
+            if (videoFrame != null) videoFrame.SetActive(visible);
+            if (videoRoot != null) videoRoot.SetActive(visible);
+        }
+
+        if (!visible)
+            StopVideo();
+    }
+
+    public void SetImageVisible(bool visible, bool showFrame = true)
+    {
+        if (imageGroup != null)
+            imageGroup.SetActive(visible);
+
+        if (imageFrame != null)
+            imageFrame.SetActive(visible && showFrame);
+
+        if (introImage != null)
+            introImage.gameObject.SetActive(visible);
+
+        if (imageCanvasGroup != null && visible)
+        {
+            imageCanvasGroup.alpha = 1f;
+        }
+    }
+
+    public void SetReadyVisible(bool visible)
+    {
+        if (readyObject != null)
+            readyObject.SetActive(visible);
     }
 
     public void ShowPracticeMessage(string content)
@@ -132,6 +248,8 @@ public class TutorialPanelUI : MonoBehaviour
 
         SetDimVisible(false);
         SetVideoVisible(false);
+        SetImageVisible(false);
+        SetReadyVisible(false);
         SetTextImmediate(content);
 
         if (messageRoot != null)
@@ -148,6 +266,8 @@ public class TutorialPanelUI : MonoBehaviour
 
         SetDimVisible(showDim);
         SetVideoVisible(false);
+        SetImageVisible(false);
+        SetReadyVisible(false);
         SetTextImmediate(content);
 
         if (messageRoot != null)

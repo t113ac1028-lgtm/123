@@ -17,9 +17,9 @@ MonoBehaviour:
   categories: []
   uiBounds:
     serializedVersion: 2
-    x: 216
+    x: 711
     y: -190
-    width: 1150
+    width: 655
     height: 1782
 --- !u!114 &114350483966674976
 MonoBehaviour:
@@ -558,7 +558,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 17
+      m_SerializableObject: 18
     m_Space: 2147483647
   m_Property:
     name: A
@@ -592,7 +592,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 17
+      m_SerializableObject: 18
     m_Space: 2147483647
   m_Property:
     name: B
@@ -682,7 +682,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: True
+      m_SerializableObject: False
     m_Space: 2147483647
   m_Property:
     name: _vfx_enabled

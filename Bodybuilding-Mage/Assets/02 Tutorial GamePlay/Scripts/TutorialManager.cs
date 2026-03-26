@@ -8,8 +8,10 @@ public class TutorialManager : MonoBehaviour
     public enum TutorialPhase
     {
         None,
+        IntroImage,
         LightAttackIntro,
         LightAttackPractice,
+        HeavyReadyHint,
         HeavyAttackIntro,
         HeavyAttackPractice,
         Finish
@@ -25,6 +27,12 @@ public class TutorialManager : MonoBehaviour
     [Header("場景切換")]
     public TutorialSceneLoader sceneLoader;
 
+    [Header("完成後顯示圖片")]
+    public GameObject finishImageObject;      // 你已經擺好的那張圖
+    public AudioSource finishImageAudioSource;
+    public AudioClip finishImageSfx;
+    public float finishImageStayDuration = 1.5f;
+
     [Header("快捷鍵")]
     public bool enableReloadHotkey = true;
     public KeyCode reloadKey = KeyCode.R;
@@ -32,10 +40,19 @@ public class TutorialManager : MonoBehaviour
     public KeyCode skipToNextSceneKey = KeyCode.Return;
     public KeyCode skipToNextSceneKeyAlt = KeyCode.KeypadEnter;
 
+    [Header("前導圖片教學")]
+    [TextArea] public string introImageText = "先熟悉一下基本動作與操作方式。";
+    public Sprite introImageSprite;
+    public float introImageStayDuration = 4f;
+
     [Header("第一段：輕擊教學")]
     [TextArea] public string lightIntroText = "上下交替揮動戰繩，釋放劍氣，擊破梅林的護盾！";
     public VideoClip lightIntroClip;
     public int lightAttackTargetCount = 10;
+
+    [Header("重擊前提示（READY）")]
+    [TextArea] public string heavyReadyText = "READY！重擊！";
+    public float heavyReadyStayDuration = 4f;
 
     [Header("第二段：重擊教學")]
     [TextArea] public string heavyIntroText = "梅林破防了！雙手同時上下揮動，使出重擊，擊敗梅林吧！";
@@ -69,6 +86,9 @@ public class TutorialManager : MonoBehaviour
 
     private void Start()
     {
+        if (finishImageObject != null)
+            finishImageObject.SetActive(false);
+
         StartCoroutine(BeginTutorialRoutine());
     }
 
@@ -136,7 +156,9 @@ public class TutorialManager : MonoBehaviour
         if (gameplay != null)
             gameplay.StartTutorialMatch();
 
-        yield return StartCoroutine(PlayIntroRoutine(
+        yield return StartCoroutine(PlayImageIntroRoutine());
+
+        yield return StartCoroutine(PlayVideoIntroRoutine(
             TutorialPhase.LightAttackIntro,
             lightIntroText,
             lightIntroClip
@@ -156,7 +178,40 @@ public class TutorialManager : MonoBehaviour
         Debug.Log("[TutorialManager] 進入第一段：輕擊練習");
     }
 
-    IEnumerator PlayIntroRoutine(TutorialPhase introPhase, string introText, VideoClip clip)
+    IEnumerator PlayImageIntroRoutine()
+    {
+        currentPhase = TutorialPhase.IntroImage;
+
+        if (gameplay != null)
+            gameplay.StopTutorialMatch();
+
+        if (panelUI != null)
+        {
+            panelUI.ShowInstant();
+            panelUI.SetDimVisible(true);
+            panelUI.SetVideoVisible(false);
+            panelUI.SetReadyVisible(false);
+            panelUI.SetImageVisible(true, true);
+
+            if (introImageSprite != null)
+                panelUI.SetIntroImage(introImageSprite);
+
+            yield return StartCoroutine(panelUI.FadeIn(panelFadeDuration));
+            panelUI.PlayTypewriterText(introImageText);
+        }
+
+        yield return new WaitForSecondsRealtime(introImageStayDuration);
+
+        if (panelUI != null)
+        {
+            yield return StartCoroutine(panelUI.FadeOut(panelFadeDuration));
+        }
+
+        if (gameplay != null)
+            gameplay.ResumeTutorialMatch();
+    }
+
+    IEnumerator PlayVideoIntroRoutine(TutorialPhase introPhase, string introText, VideoClip clip)
     {
         currentPhase = introPhase;
 
@@ -167,6 +222,8 @@ public class TutorialManager : MonoBehaviour
         {
             panelUI.ShowInstant();
             panelUI.SetDimVisible(true);
+            panelUI.SetReadyVisible(false);
+            panelUI.SetImageVisible(false);
             panelUI.SetVideoVisible(true);
 
             if (clip != null)
@@ -188,6 +245,37 @@ public class TutorialManager : MonoBehaviour
             gameplay.ResumeTutorialMatch();
     }
 
+    IEnumerator PlayHeavyReadyRoutine()
+    {
+        currentPhase = TutorialPhase.HeavyReadyHint;
+
+        if (gameplay != null)
+            gameplay.StopTutorialMatch();
+
+        if (panelUI != null)
+        {
+            panelUI.ShowInstant();
+            panelUI.SetDimVisible(true);
+            panelUI.SetVideoVisible(false);
+            panelUI.SetImageVisible(false);
+            panelUI.SetReadyVisible(true);
+
+            yield return StartCoroutine(panelUI.FadeIn(panelFadeDuration));
+            panelUI.PlayTypewriterText(heavyReadyText);
+        }
+
+        yield return new WaitForSecondsRealtime(heavyReadyStayDuration);
+
+        if (panelUI != null)
+        {
+            yield return StartCoroutine(panelUI.FadeOut(panelFadeDuration));
+            panelUI.SetReadyVisible(false);
+        }
+
+        if (gameplay != null)
+            gameplay.ResumeTutorialMatch();
+    }
+
     IEnumerator PlayHeavyIntroRoutine()
     {
         canCountInput = false;
@@ -195,7 +283,9 @@ public class TutorialManager : MonoBehaviour
 
         SetSlamPhase(true);
 
-        yield return StartCoroutine(PlayIntroRoutine(
+        yield return StartCoroutine(PlayHeavyReadyRoutine());
+
+        yield return StartCoroutine(PlayVideoIntroRoutine(
             TutorialPhase.HeavyAttackIntro,
             heavyIntroText,
             heavyIntroClip
@@ -230,6 +320,20 @@ public class TutorialManager : MonoBehaviour
         yield return StartCoroutine(PlayHeavyIntroRoutine());
     }
 
+    IEnumerator PlayFinishImageRoutine()
+    {
+        if (finishImageObject != null)
+            finishImageObject.SetActive(true);
+
+        if (finishImageAudioSource != null && finishImageSfx != null)
+            finishImageAudioSource.PlayOneShot(finishImageSfx);
+
+        yield return new WaitForSecondsRealtime(finishImageStayDuration);
+
+        if (finishImageObject != null)
+            finishImageObject.SetActive(false);
+    }
+
     IEnumerator FinishTutorialRoutine()
     {
         canCountInput = false;
@@ -243,6 +347,8 @@ public class TutorialManager : MonoBehaviour
         {
             panelUI.ShowInstant();
             panelUI.SetDimVisible(true);
+            panelUI.SetReadyVisible(false);
+            panelUI.SetImageVisible(false);
             panelUI.SetVideoVisible(false);
 
             yield return StartCoroutine(panelUI.FadeIn(panelFadeDuration));
@@ -262,11 +368,10 @@ public class TutorialManager : MonoBehaviour
 
         Debug.Log("[TutorialManager] 教學完成");
 
-        if (!keepFinishPanelVisible && panelUI != null)
-        {
-            yield return new WaitForSecondsRealtime(1.5f);
-            yield return StartCoroutine(panelUI.FadeOut(panelFadeDuration));
-        }
+        if (panelUI != null)
+            panelUI.HideInstant();
+
+        yield return StartCoroutine(PlayFinishImageRoutine());
 
         LoadNextSceneImmediately();
     }
