@@ -2576,10 +2576,10 @@ MonoBehaviour:
   gameplay: {fileID: 1624892290}
   shieldController: {fileID: 1881414962}
   sceneLoader: {fileID: 1256861814}
-  finishImageObject: {fileID: 473458730}
-  finishImageAudioSource: {fileID: 1223961370}
-  finishImageSfx: {fileID: 8300000, guid: cf0bafff12ec7a842aca0bb4ddb7a7aa, type: 3}
-  finishImageStayDuration: 2
+  finishImageObject: {fileID: 0}
+  finishImageAudioSource: {fileID: 0}
+  finishImageSfx: {fileID: 0}
+  finishImageStayDuration: 0
   enableReloadHotkey: 1
   reloadKey: 114
   enableSkipHotkey: 1
