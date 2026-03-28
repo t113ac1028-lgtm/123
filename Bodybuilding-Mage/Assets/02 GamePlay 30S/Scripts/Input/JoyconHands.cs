@@ -58,6 +58,8 @@ public class JoyconHands : MonoBehaviour
 
     void Update()
     {
+        if (TransitionGuard.IsSwitchingScene) return;
+            
         if (leftJC != null && leftHand != null)
         UpdateOne(leftJC, leftHand, ref lShown, ref lLP, lBase, "L",
               leftHorizontal, leftVertical, leftInvertH, leftInvertV);

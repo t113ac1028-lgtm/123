@@ -92,6 +92,8 @@ public class GamePlayController : MonoBehaviour
 
     private void StartMatch()
     {
+        TransitionGuard.End();
+        
         if (playing) return;
         playing = true;
         matchHandled = true; // ★ 鎖定，這局遊戲不會再重複呼叫 StartMatch
@@ -215,14 +217,49 @@ public class GamePlayController : MonoBehaviour
     }
 
     public void ResetGameplay()
+{
+    if (TransitionGuard.IsSwitchingScene) return;
+
+    // 重置前確保特效關閉
+    if (breathFX != null) breathFX.StopEffect();
+
+    TransitionGuard.Begin();
+    StartCoroutine(ResetGameplayRoutine());
+}
+
+private IEnumerator ResetGameplayRoutine()
+{
+    playing = false;
+
+    // 先關閉高頻判定腳本，避免切場景瞬間還在吃 Joy-Con 資料
+    EffectSpawner spawner = FindObjectOfType<EffectSpawner>();
+    if (spawner != null) spawner.enabled = false;
+
+    AltAndSlamCoordinator coordinator = FindObjectOfType<AltAndSlamCoordinator>();
+    if (coordinator != null) coordinator.enabled = false;
+
+    DownSwingDetector[] detectors = FindObjectsOfType<DownSwingDetector>();
+    foreach (var d in detectors)
     {
-        // 重置前確保特效關閉
-        if (breathFX != null) breathFX.StopEffect();
-        
-        Time.timeScale = 1.0f;
-        Time.fixedDeltaTime = 0.02f;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        if (d != null) d.enabled = false;
     }
+
+    JoyconHands[] joyHands = FindObjectsOfType<JoyconHands>();
+    foreach (var jh in joyHands)
+    {
+        if (jh != null) jh.enabled = false;
+    }
+
+    Time.timeScale = 1.0f;
+    Time.fixedDeltaTime = 0.02f;
+
+    // 給系統一點點緩衝時間
+    yield return new WaitForSecondsRealtime(0.15f);
+
+    AsyncOperation op = SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().name);
+    while (!op.isDone)
+        yield return null;
+}
 
     private void GoToMainMenu()
     {

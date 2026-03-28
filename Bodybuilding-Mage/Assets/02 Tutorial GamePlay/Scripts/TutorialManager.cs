@@ -428,32 +428,67 @@ public class TutorialManager : MonoBehaviour
     }
 
     public void ReloadCurrentScene()
-    {
-        if (isSceneChanging) return;
-        isSceneChanging = true;
+{
+    if (isSceneChanging) return;
+    if (TransitionGuard.IsSwitchingScene) return;
 
-        Time.timeScale = 1f;
-        string currentSceneName = SceneManager.GetActiveScene().name;
-        SceneManager.LoadScene(currentSceneName);
+    isSceneChanging = true;
+    StartCoroutine(ReloadCurrentSceneRoutine());
+}
+
+private IEnumerator ReloadCurrentSceneRoutine()
+{
+    TransitionGuard.Begin();
+
+    Time.timeScale = 1f;
+    Time.fixedDeltaTime = 0.02f;
+
+    if (coordinator != null) coordinator.enabled = false;
+    if (spawner != null) spawner.enabled = false;
+
+    DownSwingDetector[] detectors = FindObjectsOfType<DownSwingDetector>();
+    foreach (var d in detectors)
+    {
+        if (d != null) d.enabled = false;
     }
+
+    JoyconHands[] joyHands = FindObjectsOfType<JoyconHands>();
+    foreach (var jh in joyHands)
+    {
+        if (jh != null) jh.enabled = false;
+    }
+
+    yield return new WaitForSecondsRealtime(0.15f);
+
+    string currentSceneName = SceneManager.GetActiveScene().name;
+    AsyncOperation op = SceneManager.LoadSceneAsync(currentSceneName);
+    while (!op.isDone)
+        yield return null;
+}
 
     public void LoadNextSceneImmediately()
+{
+    if (isSceneChanging) return;
+    if (TransitionGuard.IsSwitchingScene) return;
+
+    isSceneChanging = true;
+
+    Time.timeScale = 1f;
+    Time.fixedDeltaTime = 0.02f;
+
+    if (coordinator != null) coordinator.enabled = false;
+    if (spawner != null) spawner.enabled = false;
+
+    if (sceneLoader != null)
     {
-        if (isSceneChanging) return;
-        isSceneChanging = true;
-
-        Time.timeScale = 1f;
-
-        if (sceneLoader != null)
-        {
-            sceneLoader.useDelay = false;
-            sceneLoader.LoadNextScene();
-        }
-        else
-        {
-            Debug.LogWarning("[TutorialManager] sceneLoader 沒有指定，無法跳到下一個場景");
-        }
+        sceneLoader.useDelay = false;
+        sceneLoader.LoadNextScene();
     }
+    else
+    {
+        Debug.LogWarning("[TutorialManager] sceneLoader 沒有指定，無法跳到下一個場景");
+    }
+}
 
     public int GetCurrentLightCount() => currentLightCount;
     public int GetCurrentHeavyCount() => currentHeavyCount;

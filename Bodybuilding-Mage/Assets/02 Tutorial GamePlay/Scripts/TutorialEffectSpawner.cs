@@ -61,6 +61,8 @@ public class TutorialEffectSpawner : MonoBehaviour
 
     void Update()
     {
+        if (TransitionGuard.IsSwitchingScene) return;
+
         if (!TutorialGamePlayController.IsPlaying) return;
 
         if (Input.GetKeyDown(KeyCode.Space)) SpawnSwingByPhase("Right", 1.0f);
@@ -70,13 +72,15 @@ public class TutorialEffectSpawner : MonoBehaviour
     bool IsInSlamPhase() => isSlamPhase;
 
     public void SpawnSwingByPhase(string who, float strength)
-    {
-        if (IsInSlamPhase()) return;
-        SpawnSlashProjectile(who, strength);
-    }
+{
+    if (TransitionGuard.IsSwitchingScene) return;
+    if (IsInSlamPhase()) return;
+    SpawnSlashProjectile(who, strength);
+}
 
     public void SpawnSlamByPhase(float strength)
     {
+        if (TransitionGuard.IsSwitchingScene) return;
         if (!IsInSlamPhase()) return;
         SpawnSlamProjectile(strength);
     }

@@ -62,6 +62,8 @@ public class AltAndSlamCoordinator : MonoBehaviour
 
     void Update()
     {
+        if (TransitionGuard.IsSwitchingScene) return;
+
         float now = Time.time;
         bool isSlamPhase = GetIsSlamPhase();
         
@@ -109,6 +111,8 @@ public class AltAndSlamCoordinator : MonoBehaviour
 
     void OnLeftSwing(float strength)
     {
+        if (TransitionGuard.IsSwitchingScene) return;
+
         float now = Time.time;
         if (now - startTime < warmupTime) return;
 
@@ -147,6 +151,8 @@ public class AltAndSlamCoordinator : MonoBehaviour
 
     void OnRightSwing(float strength)
     {
+        if (TransitionGuard.IsSwitchingScene) return;
+        
         float now = Time.time;
         if (now - startTime < warmupTime) return;
 

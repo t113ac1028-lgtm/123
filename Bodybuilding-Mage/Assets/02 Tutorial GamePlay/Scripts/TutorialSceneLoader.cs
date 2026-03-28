@@ -18,17 +18,48 @@ public class TutorialSceneLoader : MonoBehaviour
     public void LoadNextScene()
     {
         if (isLoading) return;
+        if (TransitionGuard.IsSwitchingScene) return;
+
         isLoading = true;
 
         if (useDelay)
             StartCoroutine(LoadNextSceneRoutine());
         else
-            SceneManager.LoadScene(nextSceneName);
+            StartCoroutine(LoadSceneAsyncRoutine());
     }
 
     private IEnumerator LoadNextSceneRoutine()
     {
         yield return new WaitForSecondsRealtime(delayBeforeLoad);
-        SceneManager.LoadScene(nextSceneName);
+        yield return LoadSceneAsyncRoutine();
+    }
+
+    private IEnumerator LoadSceneAsyncRoutine()
+    {
+        TransitionGuard.Begin();
+
+        DownSwingDetector[] detectors = FindObjectsOfType<DownSwingDetector>();
+        foreach (var d in detectors)
+        {
+            if (d != null) d.enabled = false;
+        }
+
+        JoyconHands[] joyHands = FindObjectsOfType<JoyconHands>();
+        foreach (var jh in joyHands)
+        {
+            if (jh != null) jh.enabled = false;
+        }
+
+        TutorialAltAndSlamCoordinator tutorialCoordinator = FindObjectOfType<TutorialAltAndSlamCoordinator>();
+        if (tutorialCoordinator != null) tutorialCoordinator.enabled = false;
+
+        TutorialEffectSpawner tutorialSpawner = FindObjectOfType<TutorialEffectSpawner>();
+        if (tutorialSpawner != null) tutorialSpawner.enabled = false;
+
+        yield return new WaitForSecondsRealtime(0.15f);
+
+        AsyncOperation op = SceneManager.LoadSceneAsync(nextSceneName);
+        while (!op.isDone)
+            yield return null;
     }
 }

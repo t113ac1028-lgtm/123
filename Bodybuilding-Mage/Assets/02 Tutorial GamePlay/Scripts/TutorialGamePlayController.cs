@@ -51,6 +51,8 @@ public class TutorialGamePlayController : MonoBehaviour
     /// </summary>
     public void StartTutorialMatch()
     {
+        TransitionGuard.End();
+
         Countdown.gameStarted = true;
         playing = true;
         tutorialFinished = false;
@@ -76,6 +78,8 @@ public class TutorialGamePlayController : MonoBehaviour
     /// </summary>
     public void ResumeTutorialMatch()
     {
+        TransitionGuard.End();
+        
         Countdown.gameStarted = true;
         playing = true;
 

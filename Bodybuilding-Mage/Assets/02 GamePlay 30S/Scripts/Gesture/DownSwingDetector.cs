@@ -80,6 +80,8 @@ public class DownSwingDetector : MonoBehaviour
 
     void Update()
     {
+        if (TransitionGuard.IsSwitchingScene) return;
+        
         // ⛔ 比賽尚未開始（倒數中），完全不判定
         if (!Countdown.gameStarted)
         return;
