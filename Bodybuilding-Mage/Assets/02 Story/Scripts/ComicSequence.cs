@@ -1,6 +1,7 @@
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Video;
-using UnityEngine.SceneManagement; // ★ 新增：用於場景切換
+using UnityEngine.SceneManagement;
 using System.Collections;
 using System.Collections.Generic;
 using MaskTransitions;    // ★ 如果你有用轉場插件請保留，沒有的話可刪除
@@ -28,6 +29,12 @@ public class ComicSequence : MonoBehaviour
     [Tooltip("最後一頁結束後要進入的場景名稱")]
     public string gameplaySceneName = "GameplayScene";
 
+    [Header("Loading 畫面")]
+    [Tooltip("Loading 時顯示的整個面板 GameObject")]
+    public GameObject loadingPanel;
+    [Tooltip("進度條 Slider（value 0~1）")]
+    public Slider loadingBar;
+
     [Header("鍵盤操作設定")]
     public KeyCode nextKeyMain = KeyCode.Space;
     public KeyCode nextKeyAlt = KeyCode.RightArrow;
@@ -38,6 +45,8 @@ public class ComicSequence : MonoBehaviour
     public float shakeThreshold = 15f;
     public float skipCooldown = 0.5f;
     public float shakeDelay = 1.0f;
+
+    private static readonly WaitForSeconds WaitLoadingComplete = new(0.2f);
 
     private int index = 0;
     private float cooldownTimer = 0f;
@@ -173,17 +182,36 @@ public class ComicSequence : MonoBehaviour
     private void EnterGameplay()
     {
         Debug.Log("[Comic] 所有漫畫播放完畢，準備進入遊戲場景：" + gameplaySceneName);
-        
-        // 如果你有使用 TransitionManager 插件，就用它的漂亮轉場
+
         if (TransitionManager.Instance != null)
         {
             TransitionManager.Instance.LoadLevel(gameplaySceneName);
         }
         else
         {
-            // 否則就用基本的場景切換
-            SceneManager.LoadScene(gameplaySceneName);
+            StartCoroutine(LoadGameScene());
         }
+    }
+
+    IEnumerator LoadGameScene()
+    {
+        if (loadingPanel != null) loadingPanel.SetActive(true);
+        if (loadingBar != null) loadingBar.value = 0f;
+
+        AsyncOperation op = SceneManager.LoadSceneAsync(gameplaySceneName);
+        op.allowSceneActivation = false;
+
+        while (op.progress < 0.9f)
+        {
+            float progress = op.progress / 0.9f;
+            if (loadingBar != null) loadingBar.value = progress;
+            yield return null;
+        }
+
+        if (loadingBar != null) loadingBar.value = 1f;
+        yield return WaitLoadingComplete; // 讓進度條停在滿格短暫一下
+
+        op.allowSceneActivation = true;
     }
 
     public void ShowPrevious()

@@ -4,20 +4,22 @@ using UnityEngine;
 /// 控制飛彈的飛行與追蹤邏輯。
 /// 包含：結算攔截、打擊特效隨機化、縮放與顏色同步、以及護盾辨識。
 /// </summary>
+[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(SphereCollider))]
 public class ProjectileHoming : MonoBehaviour
 {
     [Header("Targeting / Motion")]
-    public Transform target;                 
+    public Transform target;
     public float speed = 12f;
-    public float maxLife = 2.0f;             
-    public float upwardBias = 0.25f;         
+    public float maxLife = 2.0f;
+    public float upwardBias = 0.25f;
     [Range(0f, 1f)] public float homingStrength = 0.85f;
 
     [Header("Hit Settings")]
-    public float hitDistance = 0.45f;        
-    public LayerMask hitMask;                
+    public float hitDistance = 0.45f;
+    public LayerMask hitMask;
     public GameObject hitEffect;
-    
+
     [Header("打擊視覺強化")]
     [Tooltip("基礎特效大小倍率 (建議 2.5)")]
     public float baseHitEffectScale = 2.5f;
@@ -47,15 +49,51 @@ public class ProjectileHoming : MonoBehaviour
     );
 
     [Header("Visual (optional)")]
-    public Transform visualRoot;             
+    public Transform visualRoot;
 
-    Vector3 _vel;
-    float _life;
-    Vector3 _baseScale;
+    private Vector3 _vel;
+    private float _life;
+    private Vector3 _baseScale;
+    private Vector3 _originalScale;
+
+    // Pool回收callback，由Spawner設置；為null時改用Destroy
+    private System.Action<GameObject> _returnToPool;
+
+    // 快取Boss元件，避免每次命中都呼叫GetComponentInParent
+    private BossHitControl _bossHitCtrl;
+    private Animator _bossAnim;
+
+    // 快取物理元件，避免Launch時重複GetComponent/AddComponent
+    private Collider _col;
+    private Rigidbody _rb;
+
+    private void Awake()
+    {
+        _originalScale = visualRoot ? visualRoot.localScale : transform.localScale;
+
+        _col = GetComponent<Collider>();
+        if (!_col)
+        {
+            var sc = gameObject.AddComponent<SphereCollider>();
+            sc.radius = 0.18f;
+            _col = sc;
+        }
+        else if (_col is SphereCollider sphere && sphere.radius < 0.12f)
+        {
+            sphere.radius = 0.18f;
+        }
+        _col.isTrigger = true;
+
+        _rb = GetComponent<Rigidbody>();
+        if (!_rb) _rb = gameObject.AddComponent<Rigidbody>();
+        _rb.isKinematic = true;
+        _rb.useGravity = false;
+    }
 
     public void Launch(Transform tgt, float spd, float life, float upBias,
                        GameObject hitFx, DamageCalculator dmg, ComboCounter cmb,
-                       bool slam, float str01) 
+                       bool slam, float str01,
+                       System.Action<GameObject> returnToPool = null)
     {
         target = tgt;
         speed = spd;
@@ -66,50 +104,44 @@ public class ProjectileHoming : MonoBehaviour
         combo = cmb;
         isSlam = slam;
         strength01 = str01;
+        _returnToPool = returnToPool;
 
-        _vel = transform.forward * speed;   
+        _vel = transform.forward * speed;
         _life = 0f;
-        _baseScale = visualRoot ? visualRoot.localScale : transform.localScale;
 
-        var projectileCol = GetComponent<Collider>();
-        if (!projectileCol) projectileCol = gameObject.AddComponent<SphereCollider>();
-        projectileCol.isTrigger = true;
-        
-        if (projectileCol is SphereCollider sc && sc.radius < 0.12f) 
-            sc.radius = 0.18f;
+        // 還原到原始大小（Pool重用時scale可能已被改變）
+        if (visualRoot) visualRoot.localScale = _originalScale;
+        else transform.localScale = _originalScale;
+        _baseScale = _originalScale;
 
-        var rb = GetComponent<Rigidbody>();
-        if (!rb) rb = gameObject.AddComponent<Rigidbody>();
-        rb.isKinematic = true;
-        rb.useGravity = false;
+        // 在Launch時快取Boss元件，DoHit時不再搜尋
+        _bossHitCtrl = tgt != null ? tgt.GetComponentInParent<BossHitControl>() : null;
+        _bossAnim = (_bossHitCtrl == null && tgt != null) ? tgt.GetComponentInParent<Animator>() : null;
     }
 
     void Update()
     {
         float dt = Time.deltaTime;
         _life += dt;
-        if (_life > maxLife || target == null) { Destroy(gameObject); return; }
+        if (_life > maxLife || target == null) { ReturnToPool(); return; }
 
         float t01 = Mathf.Clamp01(_life / Mathf.Max(0.0001f, maxLife));
 
+        Vector3 to = target.position - transform.position;
         Vector3 desiredDir = transform.forward;
-        Vector3 to = (target.position - transform.position);
         if (to.sqrMagnitude > 1e-6f)
         {
-            float loft = Mathf.Max(0f, loftOverLife.Evaluate(t01));           
-            Vector3 loftVec = Vector3.up * upwardBias * loft;                 
-            desiredDir = (to.normalized + loftVec).normalized;
+            float loft = Mathf.Max(0f, loftOverLife.Evaluate(t01));
+            desiredDir = (to.normalized + Vector3.up * (upwardBias * loft)).normalized;
         }
 
-        float gain = Mathf.Clamp01(homingGain.Evaluate(t01));                  
-        Vector3 desiredVel = desiredDir * speed;
-        _vel = Vector3.Lerp(_vel, desiredVel, gain * dt * 5f);                 
+        float gain = Mathf.Clamp01(homingGain.Evaluate(t01));
+        _vel = Vector3.Lerp(_vel, desiredDir * speed, gain * dt * 5f);
 
         transform.position += _vel * dt;
 
         if (to.sqrMagnitude <= hitDistance * hitDistance)
         {
-            // 如果因為距離太近直接命中目標，預設當作打在 Boss 身上 (false)
             DoHit(transform.position, false);
             return;
         }
@@ -123,75 +155,51 @@ public class ProjectileHoming : MonoBehaviour
     {
         if (other == null) return;
 
-        // ★ 1. 檢查是否撞到護盾 ★
-        ShieldHitVFX shield = other.GetComponent<ShieldHitVFX>();
-        if (shield != null)
+        if (other.TryGetComponent<ShieldHitVFX>(out var shield))
         {
             Vector3 hitPoint = other.ClosestPoint(transform.position);
             shield.TriggerShieldHit(hitPoint);
-
-            // ★ 告訴系統：這次是打在護盾上 (傳入 true)
             DoHit(hitPoint, true);
             return;
         }
 
-        // 2. 檢查是否撞到 Boss 本體
         if (other.CompareTag("Boss"))
-        {
-            // ★ 告訴系統：這次是直接打在 Boss 肉體上 (傳入 false)
             DoHit(transform.position, false);
-        }
     }
 
-    // ★ 加入參數 isHittingShield 來控制 Boss 反應
     void DoHit(Vector3 hitPosition, bool isHittingShield)
     {
         if (!GamePlayController.IsPlaying)
         {
-            Destroy(gameObject);
+            ReturnToPool();
             return;
         }
 
-        // 1. 傷害與 Combo 計算 (打護盾還是會算分！)
         if (damage != null)
         {
             if (isSlam) damage.AddSlam(strength01, hitPosition);
             else damage.AddSlash(strength01, hitPosition);
         }
 
-        // ★ 2. BOSS 受擊反應 (如果是打在護盾上，就跳過這段不執行)
-        if (target != null && !isHittingShield)
+        if (!isHittingShield)
         {
-            BossHitControl hitCtrl = target.GetComponentInParent<BossHitControl>();
-            if (hitCtrl != null)
-            {
-                hitCtrl.TryHit();
-            }
-            else
-            {
-                Animator bossAnim = target.GetComponentInParent<Animator>();
-                if (bossAnim != null)
-                {
-                    if (isSlam || Random.value < 0.2f) bossAnim.SetTrigger("Hit");
-                }
-            }
+            if (_bossHitCtrl != null)
+                _bossHitCtrl.TryHit();
+            else if (_bossAnim != null && (Random.value < 0.2f || isSlam))
+                _bossAnim.SetTrigger("Hit");
         }
 
-        // 3. 強化版打擊特效 (位置依然會出現在命中點)
         if (hitEffect)
         {
             Quaternion randomRot = Quaternion.Euler(
-                Random.Range(0f, 360f), 
-                Random.Range(0f, 360f), 
+                Random.Range(0f, 360f),
+                Random.Range(0f, 360f),
                 Random.Range(0f, 360f)
             );
 
             GameObject vfx = Instantiate(hitEffect, hitPosition, randomRot);
-            
             float typeBonus = isSlam ? 1.5f : 1.0f;
-            float finalScale = (baseHitEffectScale + (strength01 * strengthImpactScale)) * typeBonus;
-            
-            vfx.transform.localScale = Vector3.one * finalScale;
+            vfx.transform.localScale = Vector3.one * (baseHitEffectScale + strength01 * strengthImpactScale) * typeBonus;
 
             ParticleSystem[] psList = vfx.GetComponentsInChildren<ParticleSystem>();
             foreach (var ps in psList)
@@ -203,6 +211,19 @@ public class ProjectileHoming : MonoBehaviour
             Destroy(vfx, 0.8f);
         }
 
-        Destroy(gameObject);
+        ReturnToPool();
+    }
+
+    private void ReturnToPool()
+    {
+        // 先清空callback再呼叫，防止重入
+        var callback = _returnToPool;
+        _returnToPool = null;
+        target = null;
+
+        if (callback != null)
+            callback(gameObject);
+        else
+            Destroy(gameObject);
     }
 }

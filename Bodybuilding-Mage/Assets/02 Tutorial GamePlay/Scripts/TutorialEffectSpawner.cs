@@ -1,9 +1,11 @@
 using UnityEngine;
+using UnityEngine.Pool;
 
 /// <summary>
 /// 負責產生飛彈。
 /// 包含：階段限制(30-15s / 15-0s)、顏色傳遞、以及結算攔截。
 /// 修改：飛彈不再隨力量縮放，保持原大小。
+/// 優化：使用 ObjectPool 重用飛彈物件，避免頻繁 Instantiate/Destroy 造成 GC。
 /// </summary>
 public class TutorialEffectSpawner : MonoBehaviour
 {
@@ -18,8 +20,8 @@ public class TutorialEffectSpawner : MonoBehaviour
     public float slamPhaseThreshold = 15f;
 
     [Header("2. 打擊特效顏色設定")]
-    public Color slashHitColor = new Color(0f, 0.8f, 1f); 
-    public Color slamHitColor = new Color(1f, 0.2f, 0f);  
+    public Color slashHitColor = new Color(0f, 0.8f, 1f);
+    public Color slamHitColor = new Color(1f, 0.2f, 0f);
 
     [Header("3. 發射點設定 (Muzzles)")]
     public Transform leftMuzzle;
@@ -28,7 +30,7 @@ public class TutorialEffectSpawner : MonoBehaviour
 
     [Header("4. 飛彈 Prefabs")]
     public GameObject slashProjectilePrefab;
-    public GameObject slamProjectilePrefab;   
+    public GameObject slamProjectilePrefab;
     public GameObject hitEffectPrefab;
 
     [Header("5. 飛行參數")]
@@ -43,7 +45,16 @@ public class TutorialEffectSpawner : MonoBehaviour
     public DamageCalculator damage;
     public ComboCounter combo;
 
+    [Header("7. Pool 設定")]
+    [Tooltip("Pool 預先建立的飛彈數量")]
+    public int poolDefaultCapacity = 5;
+    [Tooltip("Pool 最大容納數量（超出則 Destroy）")]
+    public int poolMaxSize = 15;
+
     public bool isSlamPhase = false;
+
+    private ObjectPool<GameObject> _slashPool;
+    private ObjectPool<GameObject> _slamPool;
 
     private void Awake()
     {
@@ -57,12 +68,36 @@ public class TutorialEffectSpawner : MonoBehaviour
             GameObject bossObj = GameObject.FindGameObjectWithTag("Boss");
             if (bossObj != null) bossTarget = bossObj.transform;
         }
+
+        if (slashProjectilePrefab)
+            _slashPool = CreatePool(slashProjectilePrefab);
+
+        if (slamProjectilePrefab)
+            _slamPool = CreatePool(slamProjectilePrefab);
+    }
+
+    private ObjectPool<GameObject> CreatePool(GameObject prefab)
+    {
+        return new ObjectPool<GameObject>(
+            createFunc:      () => Instantiate(prefab),
+            actionOnGet:     go => go.SetActive(true),
+            actionOnRelease: go => go.SetActive(false),
+            actionOnDestroy: go => Destroy(go),
+            collectionCheck: false,
+            defaultCapacity: poolDefaultCapacity,
+            maxSize:         poolMaxSize
+        );
+    }
+
+    private void OnDestroy()
+    {
+        _slashPool?.Dispose();
+        _slamPool?.Dispose();
     }
 
     void Update()
     {
         if (TransitionGuard.IsSwitchingScene) return;
-
         if (!TutorialGamePlayController.IsPlaying) return;
 
         if (Input.GetKeyDown(KeyCode.Space)) SpawnSwingByPhase("Right", 1.0f);
@@ -72,11 +107,11 @@ public class TutorialEffectSpawner : MonoBehaviour
     bool IsInSlamPhase() => isSlamPhase;
 
     public void SpawnSwingByPhase(string who, float strength)
-{
-    if (TransitionGuard.IsSwitchingScene) return;
-    if (IsInSlamPhase()) return;
-    SpawnSlashProjectile(who, strength);
-}
+    {
+        if (TransitionGuard.IsSwitchingScene) return;
+        if (IsInSlamPhase()) return;
+        SpawnSlashProjectile(who, strength);
+    }
 
     public void SpawnSlamByPhase(float strength)
     {
@@ -87,7 +122,7 @@ public class TutorialEffectSpawner : MonoBehaviour
 
     private void SpawnSlashProjectile(string who, float strength)
     {
-        if (!TutorialGamePlayController.IsPlaying || !slashProjectilePrefab) return;
+        if (!TutorialGamePlayController.IsPlaying || _slashPool == null) return;
 
         bool isLeft = (who == "Left");
         Transform hand = isLeft ? leftHand : rightHand;
@@ -95,23 +130,23 @@ public class TutorialEffectSpawner : MonoBehaviour
         if (!hand) return;
 
         Vector3 spawnPos = muzzle ? muzzle.position : hand.position;
-        
-        // ★ 飛彈生成，不進行 localScale 的縮放
-        GameObject go = Instantiate(slashProjectilePrefab, spawnPos, slashProjectilePrefab.transform.rotation);
-        
-        float k = Mathf.Clamp01(strength);
+
+        GameObject go = _slashPool.Get();
+        go.transform.SetPositionAndRotation(spawnPos, slashProjectilePrefab.transform.rotation);
 
         var homing = go.GetComponent<ProjectileHoming>();
         if (homing)
         {
-            homing.Launch(bossTarget, slashSpeed, slashMaxLife, slashUpBias, hitEffectPrefab, damage, combo, false, k);
+            homing.Launch(bossTarget, slashSpeed, slashMaxLife, slashUpBias,
+                          hitEffectPrefab, damage, combo, false, Mathf.Clamp01(strength),
+                          returnToPool: _slashPool.Release);
             homing.impactColor = slashHitColor;
         }
     }
 
     private void SpawnSlamProjectile(float strength)
     {
-        if (!TutorialGamePlayController.IsPlaying || !slamProjectilePrefab) return;
+        if (!TutorialGamePlayController.IsPlaying || _slamPool == null) return;
 
         Vector3 spawnPos;
         if (slamMuzzle)
@@ -124,15 +159,15 @@ public class TutorialEffectSpawner : MonoBehaviour
             spawnPos = 0.5f * (leftHand.position + rightHand.position);
         }
 
-        // ★ 飛彈生成，不進行 localScale 的縮放
-        GameObject go = Instantiate(slamProjectilePrefab, spawnPos, slamProjectilePrefab.transform.rotation);
-        
-        float k = Mathf.Clamp01(strength);
+        GameObject go = _slamPool.Get();
+        go.transform.SetPositionAndRotation(spawnPos, slamProjectilePrefab.transform.rotation);
 
         var homing = go.GetComponent<ProjectileHoming>();
         if (homing)
         {
-            homing.Launch(bossTarget, slamSpeed, slamMaxLife, slamUpBias, hitEffectPrefab, damage, combo, true, k);
+            homing.Launch(bossTarget, slamSpeed, slamMaxLife, slamUpBias,
+                          hitEffectPrefab, damage, combo, true, Mathf.Clamp01(strength),
+                          returnToPool: _slamPool.Release);
             homing.impactColor = slamHitColor;
         }
     }
