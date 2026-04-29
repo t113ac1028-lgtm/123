@@ -127,11 +127,11 @@ public class GamePlayController : MonoBehaviour
         AltAndSlamCoordinator coordinator = FindObjectOfType<AltAndSlamCoordinator>();
         if (coordinator != null) coordinator.enabled = false;
 
-        // 2. 清除空中飛彈
+        // 2. 清除空中飛彈（歸還 pool，避免 pool 殘留 dangling reference）
         ProjectileHoming[] remainingProjectiles = FindObjectsOfType<ProjectileHoming>();
         foreach (var p in remainingProjectiles)
         {
-            Destroy(p.gameObject);
+            if (p != null) p.ForceReturn();
         }
 
         // 3. 關閉特效與 Boss
@@ -220,7 +220,14 @@ public class GamePlayController : MonoBehaviour
 {
     if (TransitionGuard.IsSwitchingScene) return;
 
-    // 重置前確保特效關閉
+    // 停掉本物件所有協程（含 AnimateSwitchToRanking），防止和 scene reload 競爭
+    StopAllCoroutines();
+    isWaitForRank  = false;
+    isViewingRank  = false;
+
+    // 停掉 ending director（在另一個物件上跑，上面的 StopAllCoroutines 不會停它）
+    if (endingDirector != null) endingDirector.CancelEnding();
+
     if (breathFX != null) breathFX.StopEffect();
 
     TransitionGuard.Begin();
@@ -248,6 +255,13 @@ private IEnumerator ResetGameplayRoutine()
     foreach (var jh in joyHands)
     {
         if (jh != null) jh.enabled = false;
+    }
+
+    // 清除在途飛彈（歸還 pool，避免 pool 在 OnDestroy 時還有 dangling active objects）
+    ProjectileHoming[] inFlight = FindObjectsOfType<ProjectileHoming>();
+    foreach (var p in inFlight)
+    {
+        if (p != null) p.ForceReturn();
     }
 
     Time.timeScale = 1.0f;

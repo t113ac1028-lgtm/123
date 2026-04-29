@@ -46,6 +46,13 @@ public class GameEndingDirector : MonoBehaviour
         StartCoroutine(EndingSequence(onComplete));
     }
 
+    public void CancelEnding()
+    {
+        StopAllCoroutines();
+        Time.timeScale = 1.0f;
+        Time.fixedDeltaTime = 0.02f;
+    }
+
     IEnumerator EndingSequence(Action onComplete)
     {
         Debug.Log("[Director] Action! 結局開拍。");

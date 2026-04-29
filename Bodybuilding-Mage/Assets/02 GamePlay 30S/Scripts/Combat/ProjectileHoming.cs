@@ -214,6 +214,8 @@ public class ProjectileHoming : MonoBehaviour
         ReturnToPool();
     }
 
+    public void ForceReturn() => ReturnToPool();
+
     private void ReturnToPool()
     {
         // 先清空callback再呼叫，防止重入
