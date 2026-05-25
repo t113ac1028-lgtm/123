@@ -28,7 +28,7 @@ public class GoogleSheetDataHandler : MonoBehaviour
     
     public string PlayerID {get;set;}
 
-    private static readonly string sheetID = "1VM5JbEfk4_CFy0A1qfKJaFc1u3Nvm9ueXKm_pH5k0Dw";
+    private static readonly string sheetID = "1LcyVXV8zbzgebO96VmfwnsgnVseZMHh7MY9qBxJmjgQ";
     private static readonly string[] Scopes = { SheetsService.Scope.Spreadsheets };
     private byte UploadStatus = 0;
     private bool changeID = false;
@@ -150,13 +150,17 @@ public class GoogleSheetDataHandler : MonoBehaviour
         UploadStatus = 0;
         float t = 3f;
         while(t > 0) {
-            if(UploadStatus == 0) IDTextMesh.text = "Uploading...";
-            else if(UploadStatus == 1) IDTextMesh.text = "Success!";
-            else if(UploadStatus == 2) IDTextMesh.text = "Failed";
+            if(IDTextMesh != null)
+            {
+                if(UploadStatus == 0) IDTextMesh.text = "Uploading...";
+                else if(UploadStatus == 1) IDTextMesh.text = "Success!";
+                else if(UploadStatus == 2) IDTextMesh.text = "Failed";
+            }
             t -= Time.deltaTime;
             yield return null;
         }
-        IDTextMesh.text = string.IsNullOrEmpty(PlayerID) ? "<empty>" : PlayerID;
+        if(IDTextMesh != null)
+            IDTextMesh.text = string.IsNullOrEmpty(PlayerID) ? "<empty>" : PlayerID;
     }
 }
 

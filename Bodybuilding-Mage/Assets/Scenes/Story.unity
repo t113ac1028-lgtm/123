@@ -723,7 +723,7 @@ MonoBehaviour:
     autoSkipAfterVideo: 1
   - pageName: VS
     panel: {fileID: 1460521069}
-    autoSkipDuration: 5
+    autoSkipDuration: 1.5
     autoSkipAfterVideo: 0
   gameplaySceneName: Tutorial GamePlay
   loadingPanel: {fileID: 69404046}
@@ -732,7 +732,8 @@ MonoBehaviour:
   nextKeyAlt: 275
   prevKey: 276
   joyconSkipPages: 00000000
-  shakeThreshold: 8
+  shakeThreshold: 2
+  joyconSkipEnableDelay: 20
   skipCooldown: 1
   shakeDelay: 0
 --- !u!4 &194473143
@@ -1247,7 +1248,7 @@ VideoPlayer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 583865353}
   m_Enabled: 1
-  m_VideoClip: {fileID: 32900000, guid: e0c7f19c4c7982544b1f87a19cefd508, type: 3}
+  m_VideoClip: {fileID: 32900000, guid: 48bc8419ffcf0584ea332f897ac7be23, type: 3}
   m_TargetCameraAlpha: 1
   m_TargetCamera3DLayout: 0
   m_TargetCamera: {fileID: 0}
@@ -1356,7 +1357,7 @@ VideoPlayer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 664746517}
   m_Enabled: 1
-  m_VideoClip: {fileID: 32900000, guid: a6c4441f391b20c488d3c5836d37ccc5, type: 3}
+  m_VideoClip: {fileID: 32900000, guid: 350502bfea9898b4ba1651a33664d917, type: 3}
   m_TargetCameraAlpha: 1
   m_TargetCamera3DLayout: 0
   m_TargetCamera: {fileID: 0}

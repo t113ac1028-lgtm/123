@@ -1,11 +1,13 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
 using TMPro;
 using MaskTransitions;
 
 public class MainMenuStart : MonoBehaviour
 {
-    [Header("UI (可不填，會自動找)")]
+    [Header("UI")]
     public GameObject playerIdRoot;
     public TMP_InputField playerIdInput;
 
@@ -14,31 +16,23 @@ public class MainMenuStart : MonoBehaviour
     public string gameplaySceneName = "GamePlay 30S program DEMO";
 
     private bool idShown = false;
+    private Coroutine focusCoroutine;
+    private Coroutine openInputCoroutine;
 
     private void OnEnable()
     {
-        idShown = false;
-        ResolveUI();
-        if (playerIdRoot != null) playerIdRoot.SetActive(false);
+        TransitionGuard.End();
+        ShowInputForScan();
+        RestartOpenInputRoutine();
     }
 
     private void Update()
     {
-        // ★ 修正 1：同步狀態。如果 UI 在外部被關掉（SetActive(false)），idShown 必須同步回 false
         if (playerIdRoot != null && !playerIdRoot.activeInHierarchy)
-        {
-            idShown = false;
-        }
+            ShowInputForScan(false);
 
-        // ★ 修正 2：按 Enter 開啟輸入框的邏輯
-        // 必須同時滿足：1. UI 還沒顯示、2. 按下 Enter、3. 當前沒人在打字（避免打 ID 時誤觸）
-        if (!idShown)
-        {
-            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-            {
-                OnStartButtonPressed();
-            }
-        }
+        if (!idShown && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)))
+            OnStartButtonPressed();
     }
 
     private void ResolveUI()
@@ -63,29 +57,77 @@ public class MainMenuStart : MonoBehaviour
 
     public void OnStartButtonPressed()
     {
+        ShowInputForScan(false);
+    }
+
+    private void ShowInputForScan(bool clearText = true)
+    {
+        if (clearText && GoogleSheetDataHandler.Instance != null)
+            GoogleSheetDataHandler.Instance.ShowInputField(false);
+
         ResolveUI();
 
-        // ★ 修正 3：移除 "if (idShown) return;"。
-        // 不管 idShown 是不是 true，只要點了按鈕，我們就確保 UI 是開的並重新聚焦。
         if (playerIdRoot != null)
         {
             playerIdRoot.SetActive(true);
-            idShown = true; // 標記為已顯示
+            idShown = true;
         }
 
+        if (playerIdInput == null)
+        {
+            Debug.LogWarning("[MainMenu] PlayerIDInput not found.");
+            return;
+        }
+
+        if (clearText)
+            playerIdInput.text = "";
+
+        FocusInput();
+
+        if (focusCoroutine != null)
+            StopCoroutine(focusCoroutine);
+        focusCoroutine = StartCoroutine(FocusInputNextFrame());
+    }
+
+    private void FocusInput()
+    {
+        if (EventSystem.current != null)
+            EventSystem.current.SetSelectedGameObject(playerIdInput.gameObject);
+
+        playerIdInput.ActivateInputField();
+        playerIdInput.Select();
+    }
+
+    private IEnumerator FocusInputNextFrame()
+    {
+        yield return null;
+
         if (playerIdInput != null)
-        {
-            // 強制聚焦。如果原本就開著但沒選中，點按鈕會幫你選回來
-            playerIdInput.ActivateInputField();
-            playerIdInput.Select();
-            
-            // 提示：如果你希望點擊 Start 時清空文字，保留下一行；如果不希望清空，請刪掉
-            // playerIdInput.text = ""; 
-        }
-        else
-        {
-            Debug.LogWarning("[MainMenu] 找不到輸入框組件，請檢查 Hierarchy 設定。");
-        }
+            FocusInput();
+
+        focusCoroutine = null;
+    }
+
+    private void RestartOpenInputRoutine()
+    {
+        if (openInputCoroutine != null)
+            StopCoroutine(openInputCoroutine);
+
+        openInputCoroutine = StartCoroutine(OpenInputAfterSceneSettles());
+    }
+
+    private IEnumerator OpenInputAfterSceneSettles()
+    {
+        yield return null;
+        ShowInputForScan(false);
+
+        yield return new WaitForSecondsRealtime(0.25f);
+        ShowInputForScan(false);
+
+        yield return new WaitForSecondsRealtime(0.25f);
+        ShowInputForScan(false);
+
+        openInputCoroutine = null;
     }
 
     public void StartGameAfterId(string id)
@@ -95,6 +137,8 @@ public class MainMenuStart : MonoBehaviour
 
         ResultData.playerId = id;
         PlayerDataStore.LoadBestStats(id, out ResultData.bestScore, out ResultData.bestMaxCombo);
+
+        if (!TransitionGuard.TryBegin()) return;
 
         if (TransitionManager.Instance != null)
             TransitionManager.Instance.LoadLevel(storySceneName);

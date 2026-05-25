@@ -288,8 +288,6 @@ public class Joycon
     private System.DateTime ts_prev;
     private int ReceiveRaw()
     {
-        if (handle == IntPtr.Zero) return -2;
-        HIDapi.hid_set_nonblocking(handle, 0);
         byte[] raw_buf = new byte[report_len];
         int ret = HIDapi.hid_read(handle, raw_buf, new UIntPtr(report_len));
         if (ret > 0)
@@ -311,15 +309,16 @@ public class Joycon
     private void Poll()
     {
         int attempts = 0;
-        while (!stop_polling & state > state_.NO_JOYCONS)
+
+        while (state > state_.NO_JOYCONS)
         {
             SendRumble(rumble_obj.GetData());
             int a = ReceiveRaw();
             a = ReceiveRaw();
+
             if (a > 0)
             {
                 state = state_.IMU_DATA_OK;
-                attempts = 0;
             }
             else if (attempts > 1000)
             {
@@ -338,16 +337,19 @@ public class Joycon
     }
     float[] max = { 0, 0, 0 };
     float[] sum = { 0, 0, 0 };
-    public void Update()
+public void Update()
 {
     if (state > state_.NO_JOYCONS)
     {
         byte[] report_buf = new byte[report_len];
-        while (reports.Count > 0)
+        while (true)
         {
             Report rep;
             lock (reports)
             {
+                if (reports.Count == 0)
+                    break;
+
                 rep = reports.Dequeue();
                 rep.CopyBuffer(report_buf);
             }
@@ -521,11 +523,9 @@ public class Joycon
     }
     public void Begin()
     {
-        if (PollThreadObj == null)
-        {
-            PollThreadObj = new Thread(new ThreadStart(Poll));
-            PollThreadObj.Start();
-        }
+        stop_polling = false;
+        PollThreadObj = new Thread(new ThreadStart(Poll));
+        PollThreadObj.Start();
     }
     public void Recenter()
     {
@@ -573,6 +573,7 @@ public class Joycon
     {
         byte[] buf_ = new byte[report_len];
         byte[] response = new byte[report_len];
+
         Array.Copy(default_buf, 0, buf_, 2, 8);
         Array.Copy(buf, 0, buf_, 11, len);
         buf_[10] = sc;
@@ -582,7 +583,7 @@ public class Joycon
         else ++global_count;
         if (print) { PrintArray(buf_, DebugType.COMMS, len, 11, "Subcommand 0x" + string.Format("{0:X2}", sc) + " sent. Data: 0x{0:S}"); };
         HIDapi.hid_write(handle, buf_, new UIntPtr(len + 11));
-        int res = HIDapi.hid_read_timeout(handle, response, new UIntPtr(report_len), 50);
+        int res = HIDapi.hid_read(handle, response, new UIntPtr(report_len));
         if (res < 1) DebugPrint("No response.", DebugType.COMMS);
         else if (print) { PrintArray(response, DebugType.COMMS, report_len - 1, 1, "Response ID 0x" + string.Format("{0:X2}", response[0]) + ". Data: 0x{0:S}"); }
         return response;
@@ -672,14 +673,20 @@ public class Joycon
 
         if (PollThreadObj != null && PollThreadObj.IsAlive)
         {
-            try { PollThreadObj.Join(50); } catch { }
+            try { PollThreadObj.Join(500); } catch { }
         }
+        PollThreadObj = null;
 
         // 再關 hid handle
         if (handle != IntPtr.Zero)
         {
             HIDapi.hid_close(handle);
             handle = IntPtr.Zero;
+        }
+
+        lock (reports)
+        {
+            reports.Clear();
         }
     }
     catch { }

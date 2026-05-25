@@ -2587,23 +2587,23 @@ MonoBehaviour:
   skipToNextSceneKeyAlt: 271
   introImageText: "\u5C07\u611F\u6E2C\u5668\"\u9762\u5411\u5916\u5074\"\u63E1\u6301"
   introImageSprite: {fileID: 21300000, guid: 290040ae927aa0742ac39bc0de7c0207, type: 3}
-  introImageStayDuration: 6
+  introImageStayDuration: 4
   lightIntroText: "\u4E0A\u4E0B\u4EA4\u66FF\u63EE\u52D5\u6230\u7E69\n\u4F7F\u7528\u8F15\u64CA\uFF0C\u64CA\u7834\u6885\u6797\u7684\u8B77\u76FE\uFF01"
   lightIntroClip: {fileID: 32900000, guid: 6bc2066bc7c90a746a8589ba07f0647f, type: 3}
-  lightAttackTargetCount: 10
+  lightAttackTargetCount: 4
   heavyReadyText: "\u770B\u5230READY\u8DF3\u51FA\u6642\n\u6885\u6797\u7834\u9632\u4E86\uFF01\u4F7F\u51FA\u91CD\u64CA\uFF01"
-  heavyReadyStayDuration: 4
+  heavyReadyStayDuration: 3
   heavyIntroText: "\u96D9\u624B\u540C\u6642\u4E0A\u4E0B\u63EE\u52D5\n\u4F7F\u51FA\u91CD\u64CA\uFF0C\u64CA\u6557\u6885\u6797\u5427\uFF01"
   heavyIntroClip: {fileID: 32900000, guid: c078c87426f0b004b9a69524603c2eab, type: 3}
-  heavyAttackTargetCount: 4
+  heavyAttackTargetCount: 2
   lightPracticeText: "\u8A66\u8457\u5B8C\u6210\u8F15\u64CA\u52D5\u4F5C\uFF01"
   heavyPracticeText: "\u8A66\u8457\u5B8C\u6210\u91CD\u64CA\u52D5\u4F5C\uFF01"
   finishTextLine1: "\u76F8\u4FE1\u4F60\u5DF2\u7D93\u5B78\u6703\u6230\u9B25\u6280\u5DE7\u4E86\uFF01"
   finishTextLine2: "\u6253\u6557\u6885\u6797\n\u6210\u70BA\u6700\u5F37\u7684\u5065\u7F8E\u8A60\u8005\u5427\uFF01"
-  panelFadeDuration: 0.4
-  introStayDuration: 4.5
+  panelFadeDuration: 0.2
+  introStayDuration: 3.5
   shieldBreakDelay: 0.3
-  finishLineStayDuration: 3
+  finishLineStayDuration: 1.5
   keepFinishPanelVisible: 1
 --- !u!4 &567270987
 Transform:
@@ -4822,6 +4822,7 @@ MonoBehaviour:
   smooth: 14
   gravityComp: 0.9
   dirThreshold: 1.8
+  logDirections: 0
 --- !u!4 &1010876019
 Transform:
   m_ObjectHideFlags: 0
@@ -9090,6 +9091,8 @@ MonoBehaviour:
   rankingPopulator: {fileID: 1802517213}
   mainMenuSceneName: Main Menu
   autoStartOnSceneLoad: 0
+  showRankingAfterResult: 0
+  autoReturnToMainMenuDelay: 15
 --- !u!4 &1802517211
 Transform:
   m_ObjectHideFlags: 0

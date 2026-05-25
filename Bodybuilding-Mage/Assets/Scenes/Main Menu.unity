@@ -633,6 +633,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4c7d37b50c285d24094f224ad7b7b92f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  storySceneName: Story
 --- !u!4 &761926432
 Transform:
   m_ObjectHideFlags: 0
@@ -1599,8 +1600,8 @@ MonoBehaviour:
   m_text: "\u8ACB\u6383\u63CF\u6216\u8F38\u5165\u73A9\u5BB6ID\nSCAN or ENTER player
     ID"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5d55b108953b41442a7c92e97e3f1ea4, type: 2}
-  m_sharedMaterial: {fileID: 5647924667151023057, guid: 5d55b108953b41442a7c92e97e3f1ea4,
+  m_fontAsset: {fileID: 11400000, guid: b4962ea5426f8284a94bbb61c8aefd6e, type: 2}
+  m_sharedMaterial: {fileID: 415161460065413264, guid: b4962ea5426f8284a94bbb61c8aefd6e,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -1680,7 +1681,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.6431373}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1785,9 +1786,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u200B"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5d55b108953b41442a7c92e97e3f1ea4, type: 2}
-  m_sharedMaterial: {fileID: 5647924667151023057, guid: 5d55b108953b41442a7c92e97e3f1ea4,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1875,16 +1875,15 @@ MonoBehaviour:
       m_Calls: []
   m_text: Scan Player ID
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5d55b108953b41442a7c92e97e3f1ea4, type: 2}
-  m_sharedMaterial: {fileID: 5647924667151023057, guid: 5d55b108953b41442a7c92e97e3f1ea4,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 2150773298
-  m_fontColor: {r: 0.19607843, g: 0.19607843, b: 0.19607843, a: 0.5}
+    rgba: 3690987520
+  m_fontColor: {r: 0, g: 0, b: 0, a: 0.8627451}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1901,8 +1900,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 14
-  m_fontSizeBase: 14
+  m_fontSize: 21.1
+  m_fontSizeBase: 21.1
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18

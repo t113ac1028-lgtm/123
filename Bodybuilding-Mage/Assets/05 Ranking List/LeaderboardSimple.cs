@@ -103,6 +103,8 @@ public class LeaderboardSimple : MonoBehaviour
 
     public void ReturnToMainMenu()
 {
+    if (!TransitionGuard.TryBegin()) return;
+
     if (TransitionManager.Instance != null)
     {
         TransitionManager.Instance.LoadLevel(mainMenuSceneName);

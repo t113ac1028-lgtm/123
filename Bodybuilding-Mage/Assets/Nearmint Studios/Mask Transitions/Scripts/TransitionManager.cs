@@ -14,6 +14,7 @@ namespace MaskTransitions
         private float screenHeight;
         [HideInInspector] public static float maxSize;
         private float individualTransitionTime;
+        private bool isLoadingScene;
 
         [Header("Transition Properties")]
         public Sprite transitionImage;
@@ -131,6 +132,9 @@ namespace MaskTransitions
         #region Transition With Scene Load 
         public void LoadLevel(string sceneName, float delay = 0f)
         {
+            if (isLoadingScene) return;
+
+            isLoadingScene = true;
             StartCoroutine(LoadLevelWithWait(sceneName, delay));
         }
 
@@ -143,7 +147,23 @@ namespace MaskTransitions
             // Wait for the animation to complete
             yield return animationTween.WaitForCompletion();
 
-            AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName);
+            AsyncOperation asyncLoad = null;
+            try
+            {
+                asyncLoad = SceneManager.LoadSceneAsync(sceneName);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError("[TransitionManager] Failed to load scene '" + sceneName + "': " + ex.Message);
+                isLoadingScene = false;
+                yield break;
+            }
+
+            if (asyncLoad == null)
+            {
+                isLoadingScene = false;
+                yield break;
+            }
 
             while (!asyncLoad.isDone)
             {
@@ -151,6 +171,7 @@ namespace MaskTransitions
             }
 
             EndAnimation();
+            isLoadingScene = false;
         }
         #endregion
 

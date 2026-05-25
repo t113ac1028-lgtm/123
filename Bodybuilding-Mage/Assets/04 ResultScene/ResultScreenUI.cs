@@ -49,6 +49,8 @@ public class ResultScreenUI : MonoBehaviour
     // ★ 進排行榜，用 TransitionManager 轉場
 public void GoToRanking()
 {
+    if (!TransitionGuard.TryBegin()) return;
+
     if (TransitionManager.Instance != null)
     {
         // 用遮罩動畫切去排行榜場景

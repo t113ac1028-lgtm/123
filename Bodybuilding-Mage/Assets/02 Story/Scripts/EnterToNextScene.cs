@@ -5,11 +5,11 @@ public class EnterToNextScene : MonoBehaviour
 {
     public string nextScene = "GamePlay 30S program DEMO";
 
-    void Update()
+    private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Return)) // 按 Enter
-        {
-            SceneManager.LoadScene(nextScene);
-        }
+        if (!Input.GetKeyDown(KeyCode.Return)) return;
+        if (!TransitionGuard.TryBegin()) return;
+
+        SceneManager.LoadScene(nextScene);
     }
 }

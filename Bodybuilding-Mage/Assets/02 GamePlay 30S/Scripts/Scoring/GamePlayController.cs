@@ -38,10 +38,16 @@ public class GamePlayController : MonoBehaviour
     [Header("Match Settings")]
     [SerializeField] private bool autoStartOnSceneLoad = false;
 
+    [Header("Result Flow")]
+    [SerializeField] private bool showRankingAfterResult = false;
+    [SerializeField] private float autoReturnToMainMenuDelay = 15f;
+
     private bool playing;
     private bool matchHandled = false; // ★ 核心修正：標記這局是否已經啟動過
     private bool isWaitForRank = false; 
     private bool isViewingRank = false; 
+    private bool isReturningToMainMenu = false;
+    private Coroutine autoReturnCoroutine;
 
     // ★ 全域存取狀態：讓飛彈、發射器、Boss 知道現在是否在比賽中
     public static bool IsPlaying => Instance != null && Instance.playing;
@@ -83,7 +89,7 @@ public class GamePlayController : MonoBehaviour
 
         // 結算畫面按 Enter 切換到排行榜
         if (isWaitForRank && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)))
-            StartCoroutine(AnimateSwitchToRanking());
+            HandleResultAdvance();
 
         // 排行榜按 Enter 返回主選單
         if (isViewingRank && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)))
@@ -100,6 +106,8 @@ public class GamePlayController : MonoBehaviour
         
         isWaitForRank = false;
         isViewingRank = false;
+        isReturningToMainMenu = false;
+        StopAutoReturnCountdown();
         Time.timeScale = 1.0f;
 
         if (combo != null) combo.Clear();
@@ -194,12 +202,57 @@ public class GamePlayController : MonoBehaviour
     {
         resultUI.ShowResult(finalScore, maxCombo, bestScore, bestCombo, currentId, newRank, isRankUp);
         isWaitForRank = true;
+        StartAutoReturnCountdown();
     }
     else
     {
-        StartCoroutine(AnimateSwitchToRanking());
+        if (showRankingAfterResult)
+            StartCoroutine(AnimateSwitchToRanking());
+        else
+            GoToMainMenu();
     }
 }
+
+    private void HandleResultAdvance()
+    {
+        if (showRankingAfterResult)
+        {
+            StopAutoReturnCountdown();
+            StartCoroutine(AnimateSwitchToRanking());
+        }
+        else
+        {
+            GoToMainMenu();
+        }
+    }
+
+    private void StartAutoReturnCountdown()
+    {
+        StopAutoReturnCountdown();
+
+        if (autoReturnToMainMenuDelay <= 0f)
+            return;
+
+        autoReturnCoroutine = StartCoroutine(AutoReturnToMainMenuRoutine());
+    }
+
+    private void StopAutoReturnCountdown()
+    {
+        if (autoReturnCoroutine == null)
+            return;
+
+        StopCoroutine(autoReturnCoroutine);
+        autoReturnCoroutine = null;
+    }
+
+    private IEnumerator AutoReturnToMainMenuRoutine()
+    {
+        yield return new WaitForSecondsRealtime(autoReturnToMainMenuDelay);
+        autoReturnCoroutine = null;
+
+        if (isWaitForRank && !isReturningToMainMenu)
+            GoToMainMenu();
+    }
 
     private int CalculateRank(string myId, int myScore)
     {
@@ -216,21 +269,22 @@ public class GamePlayController : MonoBehaviour
         return rank;
     }
 
-    public void ResetGameplay()
+public void ResetGameplay()
 {
-    if (TransitionGuard.IsSwitchingScene) return;
+    if (!TransitionGuard.TryBegin()) return;
 
     // 停掉本物件所有協程（含 AnimateSwitchToRanking），防止和 scene reload 競爭
     StopAllCoroutines();
+    autoReturnCoroutine = null;
     isWaitForRank  = false;
     isViewingRank  = false;
+    isReturningToMainMenu = false;
 
     // 停掉 ending director（在另一個物件上跑，上面的 StopAllCoroutines 不會停它）
     if (endingDirector != null) endingDirector.CancelEnding();
 
     if (breathFX != null) breathFX.StopEffect();
 
-    TransitionGuard.Begin();
     StartCoroutine(ResetGameplayRoutine());
 }
 
@@ -277,6 +331,12 @@ private IEnumerator ResetGameplayRoutine()
 
     private void GoToMainMenu()
     {
+        if (isReturningToMainMenu) return;
+        if (!TransitionGuard.TryBegin()) return;
+
+        isReturningToMainMenu = true;
+        StopAutoReturnCountdown();
+
         if (breathFX != null) breathFX.StopEffect();
         
         Time.timeScale = 1.0f;
@@ -288,6 +348,13 @@ private IEnumerator ResetGameplayRoutine()
 
     IEnumerator AnimateSwitchToRanking()
     {
+        if (!showRankingAfterResult)
+        {
+            GoToMainMenu();
+            yield break;
+        }
+
+        StopAutoReturnCountdown();
         isWaitForRank = false; 
         float duration = 0.5f; 
 

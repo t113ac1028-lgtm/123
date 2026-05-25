@@ -4109,6 +4109,7 @@ MonoBehaviour:
   smooth: 14
   gravityComp: 0.9
   dirThreshold: 1.8
+  logDirections: 0
 --- !u!4 &1010876019
 Transform:
   m_ObjectHideFlags: 0
@@ -7472,6 +7473,8 @@ MonoBehaviour:
   rankingPopulator: {fileID: 1802517213}
   mainMenuSceneName: Main Menu
   autoStartOnSceneLoad: 0
+  showRankingAfterResult: 0
+  autoReturnToMainMenuDelay: 15
 --- !u!4 &1802517211
 Transform:
   m_ObjectHideFlags: 0
@@ -7569,13 +7572,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   timer: {fileID: 1091752063}
   slowMoStartTime: 16.5
-  slowMoScale: 0.2
+  slowMoScale: 0.6
   bgmSource: {fileID: 137009296}
   slowMoPitch: 0.6
   enterTransitionTime: 0.5
-  hitStopDelay: 0.4
-  exitTransitionTime: 0.6
-  maxRealTimeDuration: 4
+  hitStopDelay: 0.2
+  exitTransitionTime: 0.3
+  maxRealTimeDuration: 2.5
   OnSlowMoStart:
     m_PersistentCalls:
       m_Calls: []
@@ -8378,6 +8381,8 @@ MonoBehaviour:
   slamUpBias: 0.06
   damage: {fileID: 1800422719}
   combo: {fileID: 1369261126}
+  poolDefaultCapacity: 5
+  poolMaxSize: 15
 --- !u!114 &1941399504
 MonoBehaviour:
   m_ObjectHideFlags: 0

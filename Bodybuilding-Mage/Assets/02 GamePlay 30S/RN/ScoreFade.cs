@@ -11,6 +11,15 @@ public class ScoreFade : MonoBehaviour
     void Start()
     {
         text = GetComponent<TMP_Text>();
+        if (text == null)
+            text = GetComponentInChildren<TMP_Text>();
+
+        if (text == null)
+        {
+            Destroy(gameObject, lifeTime);
+            return;
+        }
+
         StartCoroutine(FadeOut());
     }
 

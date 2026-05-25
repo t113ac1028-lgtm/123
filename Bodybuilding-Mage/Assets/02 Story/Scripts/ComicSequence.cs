@@ -43,6 +43,7 @@ public class ComicSequence : MonoBehaviour
     [Header("Joy-Con 晃動設定")]
     public List<int> joyconSkipPages = new List<int>();
     public float shakeThreshold = 15f;
+    public float joyconSkipEnableDelay = 20f;
     public float skipCooldown = 0.5f;
     public float shakeDelay = 1.0f;
 
@@ -56,6 +57,8 @@ public class ComicSequence : MonoBehaviour
 
     private void Start()
     {
+        TransitionGuard.End();
+
         if (pages == null || pages.Count == 0)
         {
             Debug.LogError("[Comic] 你的 Pages 清單是空的！請在 Inspector 重新拖入頁面。");
@@ -71,6 +74,7 @@ public class ComicSequence : MonoBehaviour
         if (cooldownTimer > 0) cooldownTimer -= Time.deltaTime;
         if (isPendingNext) return;
 
+        pageTimer += Time.deltaTime;
         HandleAutoTimer();
 
         if (Input.GetKeyDown(nextKeyMain) || Input.GetKeyDown(nextKeyAlt))
@@ -92,7 +96,6 @@ public class ComicSequence : MonoBehaviour
         float limit = pages[index].autoSkipDuration;
         if (limit > 0)
         {
-            pageTimer += Time.deltaTime;
             if (pageTimer >= limit)
             {
                 ShowNext();
@@ -145,6 +148,7 @@ public class ComicSequence : MonoBehaviour
     private void HandleJoyconShake()
     {
         if (cooldownTimer > 0 || isPendingNext || !joyconSkipPages.Contains(index)) return;
+        if (pageTimer < joyconSkipEnableDelay) return;
         if (JoyconManager.Instance == null || JoyconManager.Instance.j == null || JoyconManager.Instance.j.Count == 0) return;
 
         foreach (var jc in JoyconManager.Instance.j)
@@ -181,6 +185,8 @@ public class ComicSequence : MonoBehaviour
 
     private void EnterGameplay()
     {
+        if (!TransitionGuard.TryBegin()) return;
+
         Debug.Log("[Comic] 所有漫畫播放完畢，準備進入遊戲場景：" + gameplaySceneName);
 
         if (TransitionManager.Instance != null)

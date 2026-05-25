@@ -1,12 +1,18 @@
 using UnityEngine;
-using MaskTransitions;   // ★ 一定要加這行，才能看到 TransitionManager
+using UnityEngine.SceneManagement;
+using MaskTransitions;
 
 public class MainMenuController : MonoBehaviour
 {
+    [SerializeField] private string storySceneName = "Story";
+
     public void StartGame()
     {
-        // 用 TransitionManager 播動畫 + 載入 Story 場景
-        TransitionManager.Instance.LoadLevel("Story");
-        // "Story" 改成你實際的故事場景名稱
+        if (!TransitionGuard.TryBegin()) return;
+
+        if (TransitionManager.Instance != null)
+            TransitionManager.Instance.LoadLevel(storySceneName);
+        else
+            SceneManager.LoadScene(storySceneName);
     }
 }

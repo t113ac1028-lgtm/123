@@ -5,6 +5,8 @@ using UnityEngine.SceneManagement;
 
 public class TutorialManager : MonoBehaviour
 {
+    private static bool globalSceneChanging = false;
+
     public enum TutorialPhase
     {
         None,
@@ -86,6 +88,8 @@ public class TutorialManager : MonoBehaviour
 
     private void Start()
     {
+        globalSceneChanging = false;
+
         if (finishImageObject != null)
             finishImageObject.SetActive(false);
 
@@ -402,6 +406,8 @@ public class TutorialManager : MonoBehaviour
 
         if (currentLightCount >= lightAttackTargetCount)
         {
+            canCountInput = false;
+            isBusyTransitioning = true;
             StartCoroutine(LightPartCompleteRoutine());
         }
     }
@@ -423,6 +429,8 @@ public class TutorialManager : MonoBehaviour
 
         if (currentHeavyCount >= heavyAttackTargetCount)
         {
+            canCountInput = false;
+            isBusyTransitioning = true;
             StartCoroutine(FinishTutorialRoutine());
         }
     }
@@ -430,16 +438,18 @@ public class TutorialManager : MonoBehaviour
     public void ReloadCurrentScene()
 {
     if (isSceneChanging) return;
-    if (TransitionGuard.IsSwitchingScene) return;
+    if (globalSceneChanging) return;
+    if (!TransitionGuard.TryBegin()) return;
 
     isSceneChanging = true;
+    globalSceneChanging = true;
+    canCountInput = false;
+    isBusyTransitioning = true;
     StartCoroutine(ReloadCurrentSceneRoutine());
 }
 
 private IEnumerator ReloadCurrentSceneRoutine()
 {
-    TransitionGuard.Begin();
-
     Time.timeScale = 1f;
     Time.fixedDeltaTime = 0.02f;
 
@@ -469,9 +479,13 @@ private IEnumerator ReloadCurrentSceneRoutine()
     public void LoadNextSceneImmediately()
 {
     if (isSceneChanging) return;
-    if (TransitionGuard.IsSwitchingScene) return;
+    if (globalSceneChanging) return;
+    if (!TransitionGuard.TryBegin()) return;
 
     isSceneChanging = true;
+    globalSceneChanging = true;
+    canCountInput = false;
+    isBusyTransitioning = true;
 
     Time.timeScale = 1f;
     Time.fixedDeltaTime = 0.02f;
@@ -482,7 +496,7 @@ private IEnumerator ReloadCurrentSceneRoutine()
     if (sceneLoader != null)
     {
         sceneLoader.useDelay = false;
-        sceneLoader.LoadNextScene();
+        sceneLoader.LoadNextScene(guardAlreadyStarted: true);
     }
     else
     {

@@ -25,10 +25,10 @@ public class TutorialSceneLoader : MonoBehaviour
 
     private bool isLoading = false;
 
-    public void LoadNextScene()
+    public void LoadNextScene(bool guardAlreadyStarted = false)
     {
         if (isLoading) return;
-        if (TransitionGuard.IsSwitchingScene) return;
+        if (!guardAlreadyStarted && !TransitionGuard.TryBegin()) return;
 
         isLoading = true;
 
@@ -46,8 +46,6 @@ public class TutorialSceneLoader : MonoBehaviour
 
     private IEnumerator LoadSceneAsyncRoutine()
     {
-        TransitionGuard.Begin();
-
         DownSwingDetector[] detectors = FindObjectsOfType<DownSwingDetector>();
         foreach (var d in detectors)
             if (d != null) d.enabled = false;

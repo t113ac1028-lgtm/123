@@ -80,7 +80,8 @@ public class Countdown : MonoBehaviour
         // 1. 播放音效 (在攝影機位置播放，確保聽得到)
         if (sfx != null)
         {
-            AudioSource.PlayClipAtPoint(sfx, Camera.main.transform.position);
+            Vector3 audioPosition = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+            AudioSource.PlayClipAtPoint(sfx, audioPosition);
         }
 
         // 2. 換圖
