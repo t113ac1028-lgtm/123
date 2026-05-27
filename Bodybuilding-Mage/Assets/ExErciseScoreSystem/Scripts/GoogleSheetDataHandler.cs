@@ -40,6 +40,8 @@ public class GoogleSheetDataHandler : MonoBehaviour
         if(IDInputUI != null) IDInputUI.SetActive(true);
         if(IDInputField != null) 
         {
+            ExhibitInputGuard.ForceEnglishKeyboard();
+            ExhibitInputGuard.ConfigureIdInput(IDInputField);
             IDInputField.text = "";
             IDInputField.ActivateInputField();
         }
@@ -49,7 +51,7 @@ public class GoogleSheetDataHandler : MonoBehaviour
     public void PlayerIDEntered() 
     {
         if (IDInputField == null) return;
-        string rawInput = IDInputField.text.Trim();
+        string rawInput = ExhibitInputGuard.KeepAsciiLettersAndDigits(IDInputField.text.Trim());
         if (string.IsNullOrEmpty(rawInput)) return;
 
         // 不論長度，只取最後 10 位

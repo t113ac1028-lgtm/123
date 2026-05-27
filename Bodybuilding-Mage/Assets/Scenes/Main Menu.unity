@@ -1167,7 +1167,10 @@ MonoBehaviour:
   playerIdRoot: {fileID: 8148157367847778668}
   playerIdInput: {fileID: 4919713200589703326}
   storySceneName: Story
+  tutorialSceneName: Tutorial GamePlay
   gameplaySceneName: GamePlay 30S program DEMO
+  createSkipStoryToggle: 1
+  skipStoryPrefsKey: BodybuildingMage.SkipStory
 --- !u!4 &1061612381
 Transform:
   m_ObjectHideFlags: 0
